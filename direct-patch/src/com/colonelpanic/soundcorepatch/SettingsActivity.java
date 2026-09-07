@@ -427,12 +427,14 @@ public final class SettingsActivity extends Activity {
           public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
             valueGroup.setVisibility(position == 0 ? View.GONE : View.VISIBLE);
             help.setText(
-                position < 2
-                    ? "The app field is optional for links. Choose an app to send the link to a"
-                        + " specific handler."
-                    : "Use an Android intent URI, for example"
-                        + " intent:#Intent;action=com.example.ACTION;end. The receiving app must"
-                        + " accept that intent.");
+                position == 0
+                    ? "Choose the installed app to open when this event arrives."
+                    : position == 1
+                        ? "The app field is optional for links. Choose an app to send the link to a"
+                            + " specific handler."
+                        : "Use an Android intent URI, for example"
+                              + " intent:#Intent;action=com.example.ACTION;end. The receiving app"
+                              + " must accept that intent.");
           }
 
           public void onNothingSelected(AdapterView<?> parent) {}
