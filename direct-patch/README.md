@@ -79,3 +79,20 @@ checksum. It uses the repository's `ANDROID_SIGNING_*` Actions secrets.
 The `inputs-soundcore-5.0.21` prerelease is a pinned build dependency. Do not replace
 its asset in place. A future upstream update needs a new input archive, updated
 hashes, and device verification of the component factory and native libraries.
+
+## Built-in wind reduction
+
+`WindToggle` performs read → invert → write → acknowledgement → readback, with
+an eight-second timeout in `WindToggleReceiver`. Acknowledgement alone is not
+success. `WindDevice` adapts the pinned upstream runtime through reflection:
+`Cmm2BtDeviceManager.D5(11, enabled)` is the dedicated switch command; `r()`
+requests fresh device information. The adapter accepts only the verified D1203
+product and checks the active device address before each request. Callback work
+is posted to the main queue so listener removal cannot mutate the vendor's
+listener list during dispatch. Multiple simultaneous toggles are rejected.
+
+The explicit receiver provides a background entry point. Activity mappings use
+a no-display trampoline for this action. Android runtime tests cover both toggle
+directions, readback confirmation, failed reads/writes/acknowledgements, timeout,
+and listener cleanup. Hardware verification on Liberty 5 Pro also confirmed the
+broadcast can toggle the setting while Android remains in Dozing state.

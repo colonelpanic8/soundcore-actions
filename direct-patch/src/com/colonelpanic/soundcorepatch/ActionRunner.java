@@ -11,6 +11,8 @@ final class ActionRunner {
   private ActionRunner() {}
 
   static Intent intent(Context context, Rules.Action action) throws URISyntaxException {
+    if ("wind".equals(action.type))
+      return new Intent(WindToggleReceiver.ACTION).setClass(context, WindToggleReceiver.class);
     Intent intent;
     switch (action.type) {
       case "app":
@@ -43,6 +45,10 @@ final class ActionRunner {
   }
 
   static void run(Context context, Rules.Action action) {
+    if ("wind".equals(action.type)) {
+      WindToggleReceiver.run(context, (success, message) -> {});
+      return;
+    }
     try {
       Intent intent = intent(context, action);
       if ("broadcast".equals(action.type)) context.sendBroadcast(intent);

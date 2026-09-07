@@ -45,8 +45,8 @@ The signing certificate SHA-256 is:
 1. Open **soundcore (actions)**.
 2. Edit **Anka assistant**, **Real-time translation**, or **Face-to-face
    translation**, or choose **Add a mapping** for another event.
-3. Choose an installed app, a link, an Android intent, or a broadcast to an
-   automation app. Give it a useful display name, then test and save it.
+3. Choose an installed app, a link, an Android intent, a broadcast to an
+   automation app, or **Toggle wind reduction**. Give it a useful display name, then test and save it.
 4. In Soundcore's earbud controls, assign the corresponding function to a gesture.
    Supported native Anka and translation labels reflect the mapped action name.
 
@@ -58,6 +58,29 @@ behavior** removes one mapping; the main switch temporarily disables all of them
 then return to see which app entry point ran. The searchable browser also lists
 all declared screens, services, and receivers. Technical identifiers are kept
 under **Event details**.
+
+## Wind reduction
+
+Choose **Toggle wind reduction** as a mapping's action, or use **Toggle wind
+reduction now** on the mappings page. This currently supports Liberty 5 Pro
+(product D1203), with an active connection in Soundcore. It reads the earbuds'
+current setting, toggles it, and confirms the result before reporting on or off.
+The command runs in the background without opening Soundcore's controls.
+
+An automation app can also send an explicit broadcast:
+
+```text
+Action: com.colonelpanic.soundcoreactions.TOGGLE_WIND_REDUCTION
+Package: com.oceanwing.soundcore
+Receiver: com.colonelpanic.soundcorepatch.WindToggleReceiver
+```
+
+A physical gesture still needs an existing earbud event, such as Anka or
+translation, assigned in Soundcore. Repurposing that event supplies the trigger;
+the wind command itself does not require opening or replacing a Soundcore screen.
+The explicit broadcast and the test button work independently of mappings.
+Other local apps can invoke this exported receiver; it accepts only the fixed
+wind-toggle action and does not accept arbitrary commands or device addresses.
 
 ## What can be repurposed?
 

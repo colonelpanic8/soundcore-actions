@@ -174,6 +174,10 @@ public final class SettingsActivity extends Activity {
       button(mapping, "Edit mapping", () -> edit(kind, name));
     }
     button(page, "+ Add a mapping", this::chooseTriggerSource);
+    button(
+        page,
+        "Toggle wind reduction now",
+        () -> WindToggleReceiver.run(this, (success, message) -> {}));
     button(page, "Recent events", () -> chooseTrigger("recent"));
     button(
         page,
@@ -204,6 +208,8 @@ public final class SettingsActivity extends Activity {
 
   private static String actionDescription(String type) {
     switch (type) {
+      case "wind":
+        return "Toggle wind reduction in the background";
       case "app":
         return "Open an app";
       case "link":
@@ -395,14 +401,18 @@ public final class SettingsActivity extends Activity {
         false);
     LinearLayout form = card(page);
     text(form, "Action", 14, muted, true);
-    String[] types = {"app", "link", "intent", "broadcast"};
+    String[] types = {"app", "link", "intent", "broadcast", "wind"};
     Spinner type = new Spinner(this);
     ArrayAdapter<String> adapter =
         new ArrayAdapter<>(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             new String[] {
-              "Open an app", "Open a link", "Android intent", "Broadcast to an automation app"
+              "Open an app",
+              "Open a link",
+              "Android intent",
+              "Broadcast to an automation app",
+              "Toggle wind reduction"
             });
     type.setAdapter(adapter);
     form.addView(type, new LinearLayout.LayoutParams(-1, dp(56)));
@@ -422,19 +432,26 @@ public final class SettingsActivity extends Activity {
     form.addView(valueGroup);
     EditText value = field(valueGroup, "Link or intent URI", initial.value, "paseo://live-voice");
     TextView help = text(form, "", 13, muted, false);
+    int[] previousType = {type.getSelectedItemPosition()};
     type.setOnItemSelectedListener(
         new AdapterView.OnItemSelectedListener() {
           public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            valueGroup.setVisibility(position == 0 ? View.GONE : View.VISIBLE);
+            valueGroup.setVisibility(position == 0 || position == 4 ? View.GONE : View.VISIBLE);
+            packageGroup.setVisibility(position == 4 ? View.GONE : View.VISIBLE);
+            if (position == 4 && previousType[0] != 4) label.setText("Toggle wind reduction");
+            previousType[0] = position;
             help.setText(
-                position == 0
-                    ? "Choose the installed app to open when this event arrives."
-                    : position == 1
-                        ? "The app field is optional for links. Choose an app to send the link to a"
-                            + " specific handler."
-                        : "Use an Android intent URI, for example"
-                            + " intent:#Intent;action=com.example.ACTION;end. The receiving app"
-                            + " must accept that intent.");
+                position == 4
+                    ? "Toggles wind reduction on connected Liberty 5 Pro earbuds without opening a"
+                        + " screen. Soundcore must be connected to the earbuds."
+                    : position == 0
+                        ? "Choose the installed app to open when this event arrives."
+                        : position == 1
+                            ? "The app field is optional for links. Choose an app to send the link"
+                                + " to a specific handler."
+                            : "Use an Android intent URI, for example"
+                                + " intent:#Intent;action=com.example.ACTION;end. The receiving app"
+                                + " must accept that intent.");
           }
 
           public void onNothingSelected(AdapterView<?> parent) {}

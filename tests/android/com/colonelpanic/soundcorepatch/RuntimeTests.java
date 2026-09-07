@@ -15,6 +15,82 @@ import java.util.concurrent.TimeUnit;
 public final class RuntimeTests extends Instrumentation {
   private int checks;
 
+  private static final class FakeWind implements WindToggle.Device {
+    WindToggle.Listener listener;
+    int reads, writes, closes;
+    boolean written;
+    boolean failWrite;
+
+    public void listen(WindToggle.Listener value) {
+      listener = value;
+    }
+
+    public void refresh() {
+      reads++;
+    }
+
+    public void write(boolean value) {
+      writes++;
+      written = value;
+      if (failWrite) throw new IllegalStateException("disconnected");
+    }
+
+    public void close() {
+      closes++;
+    }
+  }
+
+  private void testWind() {
+    for (boolean initial : new boolean[] {false, true}) {
+      FakeWind device = new FakeWind();
+      int[] results = {0};
+      WindToggle toggle =
+          new WindToggle(
+              device,
+              (success, message) -> {
+                check(success, "Wind confirmed");
+                results[0]++;
+              });
+      toggle.start();
+      check(device.reads == 1 && device.writes == 0, "Read before write");
+      device.listener.state(true, initial);
+      check(device.writes == 1 && device.written != initial, "Toggle fresh state");
+      device.listener.state(true, initial);
+      check(device.writes == 1, "Ignore unrelated reads while awaiting acknowledgement");
+      device.listener.acknowledged(true);
+      check(device.reads == 2 && results[0] == 0, "Acknowledgement requires readback");
+      device.listener.state(true, !initial);
+      toggle.timeout();
+      device.listener.acknowledged(true);
+      check(results[0] == 1 && device.closes == 1, "Complete and clean up exactly once");
+    }
+    for (int failure = 0; failure < 5; failure++) {
+      FakeWind device = new FakeWind();
+      int[] results = {0};
+      WindToggle toggle =
+          new WindToggle(
+              device,
+              (success, message) -> {
+                check(!success, "Failure cannot report success");
+                results[0]++;
+              });
+      toggle.start();
+      if (failure == 0) device.listener.state(false, false);
+      else if (failure == 1) toggle.timeout();
+      else {
+        device.failWrite = failure == 2;
+        device.listener.state(true, false);
+        if (failure == 3) device.listener.acknowledged(false);
+        if (failure == 4) {
+          device.listener.acknowledged(true);
+          device.listener.state(true, false);
+        }
+      }
+      check(results[0] == 1 && device.closes == 1, "Failure cleans up listener");
+      if (failure < 2) check(device.writes == 0, "No write without fresh state");
+    }
+  }
+
   @Override
   public void onCreate(Bundle arguments) {
     super.onCreate(arguments);
@@ -36,6 +112,7 @@ public final class RuntimeTests extends Instrumentation {
     for (int i = 0; i < names.length; i++) previous[i] = Rules.stored(context, kinds[i], names[i]);
     int code = Activity.RESULT_CANCELED;
     try {
+      testWind();
       Rules.setEnabled(context, true);
       Intent link = ActionRunner.intent(context, Rules.Action.paseo());
       check(Intent.ACTION_VIEW.equals(link.getAction()), "Link action");

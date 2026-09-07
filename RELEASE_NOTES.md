@@ -1,6 +1,6 @@
-Rename the two launcher entries to match soundcore’s lowercase branding:
+Add **Toggle wind reduction** as a custom action for connected Liberty 5 Pro earbuds.
 
-- **soundcore (custom)** opens the full modified Soundcore app and its earbud controls.
-- **soundcore (actions)** opens the custom action mappings, with a matching page title.
-
-These are two shortcuts into the same installed app. This update preserves existing mappings and app data, and retains the same signing key for in-place updates through Obtainium or the self-hosted F-Droid repository.
+- Select it for an Anka, translation, or other supported event, or use the new **Toggle wind reduction now** button.
+- Runs the dedicated earbud command in the background and confirms the resulting setting before reporting success.
+- Automation apps can invoke the explicit `com.colonelpanic.soundcoreactions.TOGGLE_WIND_REDUCTION` broadcast on `com.colonelpanic.soundcorepatch.WindToggleReceiver` in `com.oceanwing.soundcore`.
+- Requires Soundcore to be connected to Liberty 5 Pro (D1203). Existing mappings and app data are preserved.

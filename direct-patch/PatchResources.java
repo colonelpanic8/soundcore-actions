@@ -49,6 +49,10 @@ public final class PatchResources {
           .newElement("category")
           .getOrCreateAndroidAttribute("name", NAME)
           .setValueAsString("android.intent.category.LAUNCHER");
+      ResXmlElement wind = app.newElement("receiver");
+      wind.getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString(PREFIX + "WindToggleReceiver");
+      wind.getOrCreateAndroidAttribute("exported", android.R.attr.exported).setValueAsBoolean(true);
       ResXmlElement query =
           manifest.getManifestElement().getOrCreateElement("queries").newElement("intent");
       query
