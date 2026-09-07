@@ -1,6 +1,6 @@
 # Current approach and architecture review
 
-Status: Soundcore Actions v0.1.0, reviewed on 2026-09-07.
+Status: Soundcore Actions v0.1.1, reviewed on 2026-09-07.
 
 ## Purpose
 
@@ -19,8 +19,8 @@ requirements. The user explicitly requested an independent Fable review.
 One modified Soundcore APK uses the original package ID,
 `com.oceanwing.soundcore`. It currently exposes two launcher entries:
 
-- **Soundcore devices** opens the original `WelcomeActivity`.
-- **Soundcore Actions** opens our mapping settings. Those settings also contain
+- **soundcore (custom)** opens the original `WelcomeActivity`.
+- **soundcore (actions)** opens our mapping settings. Those settings also contain
   an **Open Soundcore** button.
 
 The old, separately installed accessibility bridge had the same visible name,

@@ -21,7 +21,7 @@ public final class PatchResources {
       manifest
           .getActivity("com.oceanwing.soundcore.activity.WelcomeActivity", false)
           .getOrCreateAndroidAttribute("label", android.R.attr.label)
-          .setValueAsString("Soundcore devices");
+          .setValueAsString("soundcore (custom)");
       app.getOrCreateAndroidAttribute("appComponentFactory", android.R.attr.appComponentFactory)
           .setValueAsString(PREFIX + "ComponentFactory");
       ResXmlElement settings = app.newElement("activity");
@@ -30,7 +30,7 @@ public final class PatchResources {
           .setValueAsString(PREFIX + "SettingsActivity");
       settings
           .getOrCreateAndroidAttribute("label", android.R.attr.label)
-          .setValueAsString("Soundcore Actions");
+          .setValueAsString("soundcore (actions)");
       settings
           .getOrCreateAndroidAttribute("exported", android.R.attr.exported)
           .setValueAsBoolean(true);

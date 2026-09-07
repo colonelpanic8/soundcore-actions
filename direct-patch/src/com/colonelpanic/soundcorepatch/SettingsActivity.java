@@ -137,7 +137,7 @@ public final class SettingsActivity extends Activity {
   }
 
   private void showHome() {
-    startPage("Soundcore Actions", "Choose what Soundcore does when an event arrives.", true);
+    startPage("soundcore (actions)", "Choose what Soundcore does when an event arrives.", true);
     LinearLayout control = card(page);
     Switch enabled = new Switch(this);
     enabled.setText("Custom mappings enabled");

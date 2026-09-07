@@ -1,11 +1,6 @@
-Initial release of Soundcore Actions, based on Soundcore 5.0.21.
+Rename the two launcher entries to match soundcore’s lowercase branding:
 
-- Configure Anka, translation, and other Soundcore app entry points with named custom actions.
-- Open installed apps, deep links, Android intents, or send broadcasts to automation apps.
-- Browse recent events and declared components; restore original behavior per mapping or globally.
-- Show configured action names in supported native Soundcore controls.
-- Install and update from a single consistently signed APK, including through Obtainium.
+- **soundcore (custom)** opens the full modified Soundcore app and its earbud controls.
+- **soundcore (actions)** opens the custom action mappings, with a matching page title.
 
-Requires Android 9+ on ARM64/ARMv7. The package is `com.oceanwing.soundcore`; replacing the official app requires uninstalling it first and clears its local data. The patch leaves the system's default assistant unchanged.
-
-This intercepts Android component creation, not every low-level earbud event. Background mappings and individual hardware gestures need testing on the intended device. The bundled Paseo preset requires a compatible Paseo Live Voice build.
+These are two shortcuts into the same installed app. This update preserves existing mappings and app data, and retains the same signing key for in-place updates through Obtainium or the self-hosted F-Droid repository.

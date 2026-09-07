@@ -6,8 +6,8 @@ this instead**, with a name for each action and a one-tap way to restore the
 original behavior.
 
 This is a modified Soundcore Android app. It keeps the normal device controls,
-adds a **Soundcore Actions** launcher icon for mappings, and leaves your phone's
-default assistant unchanged. The **Soundcore devices** icon opens the normal app.
+adds a **soundcore (actions)** launcher icon for mappings, and leaves your phone's
+default assistant unchanged. The **soundcore (custom)** icon opens the normal app.
 
 ## Install and update
 
@@ -42,7 +42,7 @@ The signing certificate SHA-256 is:
 
 ## Make a mapping
 
-1. Open **Soundcore Actions**.
+1. Open **soundcore (actions)**.
 2. Edit **Anka assistant**, **Real-time translation**, or **Face-to-face
    translation**, or choose **Add a mapping** for another event.
 3. Choose an installed app, a link, an Android intent, or a broadcast to an
