@@ -1,0 +1,127 @@
+name: Publish F-Droid Repository
+
+# Rebuilds and deploys the self-hosted F-Droid repository at
+# https://colonelpanic8.github.io/soundcore-actions/ from the signed APK
+# attached to the most recent GitHub release.
+#
+# This runs after "Release App Artifacts" finishes, because that workflow is
+# what uploads the APK a release needs before it can be indexed. The Pages
+# deployment replaces the whole site each time, so the indexed versions are
+# re-collected from scratch on every run.
+#
+# `workflow_run` only fires for workflow files on the default branch.
+
+on:
+  workflow_run:
+    workflows: ["Release App Artifacts"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_count:
+        description: >-
+          How many recent releases to index. The APK is ~485 MB against a 1 GB
+          GitHub Pages site limit. Two versions exceed the 900 MiB safety budget.
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pages allows one in-flight deployment; queue rather than cancel so a release
+# never loses its deploy to a later run.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and deploy F-Droid repository
+    # workflow_run fires for failed runs too.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: sdkmanager "build-tools;36.0.0"
+
+      - name: Install fdroidserver
+        run: pip install --disable-pip-version-check fdroidserver
+
+      - name: Build F-Droid repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FDROID_OUT_DIR: ${{ github.workspace }}/build/fdroid
+          FDROID_RELEASE_COUNT: ${{ inputs.release_count || '1' }}
+          # The index is signed with the same key as the APK so that installs
+          # from this repo and from GitHub releases upgrade each other.
+          FDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          FDROID_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          FDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEYSTORE_PASSWORD }}
+          FDROID_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: ./scripts/fdroid/build-repo.sh
+
+      - name: Assemble Pages site
+        run: |
+          set -euo pipefail
+
+          # Only repo/ is published; config.yml and metadata/ stay build-local.
+          mkdir -p site/fdroid
+          mv build/fdroid/repo site/fdroid/repo
+          ./scripts/fdroid/landing-page.py build/fdroid site/index.html
+
+          echo "Site contents:"
+          du -sh site
+          ls -lh site/fdroid/repo
+
+      - name: Summarize
+        run: |
+          set -euo pipefail
+          {
+            echo "### F-Droid repository published"
+            echo
+            echo "Repo URL: \`$(sed -n 's/^repo_url:[[:space:]]*//p' fdroid/config.yml)\`"
+            if [ -f build/fdroid/fingerprint.txt ]; then
+              echo
+              echo "Fingerprint: \`$(cat build/fdroid/fingerprint.txt)\`"
+            fi
+            echo
+            echo "Site size: \`$(du -sh site | cut -f1)\` (GitHub Pages limit: 1 GB)"
+            echo
+            echo "Indexed APKs:"
+            echo
+            for apk in site/fdroid/repo/*.apk; do
+              echo "- \`$(basename "$apk")\` ($(du -h "$apk" | cut -f1))"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 900000

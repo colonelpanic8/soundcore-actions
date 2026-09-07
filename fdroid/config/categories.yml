@@ -1,0 +1,7 @@
+# The category set this repo publishes. `fdroid lint` validates App Categories
+# against this list.
+
+Connectivity:
+  name: Connectivity
+  description: >-
+    Bluetooth, pairing, and companion apps for external devices.

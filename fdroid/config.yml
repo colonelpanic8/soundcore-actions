@@ -1,0 +1,36 @@
+# Configuration for the self-hosted Soundcore Actions F-Droid repository.
+#
+# `scripts/fdroid/build-repo.sh` copies this file into a scratch repo directory,
+# populates `repo/` with the signed APK from GitHub releases, and runs
+# `fdroid update`. The result is deployed to GitHub Pages by
+# `.github/workflows/fdroid-repo.yml`.
+#
+# Secrets are resolved from the environment at `fdroid update` time via
+# fdroidserver's `{env: ...}` indirection, so nothing sensitive lives in git.
+
+repo_url: https://colonelpanic8.github.io/soundcore-actions/fdroid/repo
+repo_name: Soundcore Actions
+repo_icon: icon.png
+repo_description: >-
+  Personal repository for Soundcore Actions: Anker's Soundcore app patched so
+  that components it already declares — the Anka assistant, the translation
+  screens, and other activities, services, and manifest receivers — can be
+  mapped to an app, link, Android intent, or broadcast of your choosing. Builds
+  here are the same signed APKs attached to GitHub releases. This is an
+  unofficial modification of proprietary software and is not affiliated with
+  Anker, Oceanwing, or the official F-Droid catalog.
+
+# The APK is a repackaged Soundcore build and is roughly 485 MB, against a 1 GB
+# GitHub Pages site limit. Only the newest version is published here; older
+# versions stay on the GitHub releases page, which is the primary download
+# channel either way.
+archive_older: 0
+
+# The repo index is signed with the same keystore used to sign the APK, so that
+# installs from this repo and from GitHub releases upgrade each other in place.
+keystore: keystore.p12
+repo_keyalias: {env: FDROID_KEY_ALIAS}
+keystorepass: {env: FDROID_KEYSTORE_PASSWORD}
+keypass: {env: FDROID_KEY_PASSWORD}
+
+make_current_version_link: false

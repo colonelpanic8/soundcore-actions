@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.colonelpanic.soundcoreactions.tests">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
+    <application android:label="Soundcore Actions tests" android:appComponentFactory="com.colonelpanic.soundcorepatch.ComponentFactory" />
+    <instrumentation android:name="com.colonelpanic.soundcorepatch.RuntimeTests" android:targetPackage="com.colonelpanic.soundcoreactions.tests" />
+</manifest>

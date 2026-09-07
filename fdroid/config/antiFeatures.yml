@@ -1,0 +1,28 @@
+# Declares the anti-feature vocabulary this repo uses. Without it, fdroidserver
+# has no allowed list to validate against and `fdroid lint` rejects every name,
+# and clients get no display name for them.
+#
+# These are F-Droid's standard names and wordings; the app metadata supplies the
+# repo-specific "why" alongside each one.
+
+UpstreamNonFree:
+  name: Non-Free Upstream
+  description: >-
+    Upstream source code is not entirely free software.
+NonFreeAssets:
+  name: Non-Free Assets
+  description: >-
+    Contains assets such as artwork, sounds, or data that are not released under
+    a free license.
+NonFreeDep:
+  name: Non-Free Dependencies
+  description: >-
+    Depends on other non-free software.
+NonFreeNet:
+  name: Non-Free Network Services
+  description: >-
+    Promotes or depends entirely on a non-changeable network service.
+Tracking:
+  name: Tracking
+  description: >-
+    Reports or enables reporting user activity to third parties.

@@ -1,0 +1,45 @@
+# Listing for the modified Soundcore build published by this project.
+#
+# The application ID stays `com.oceanwing.soundcore` because Soundcore's own
+# startup path fails under a renamed package, so the listing has to be explicit
+# that this is not Anker's build.
+
+Name: Soundcore Actions
+Categories:
+  - Connectivity
+License: Proprietary
+AuthorName: Ivan Malison
+WebSite: https://github.com/colonelpanic8/soundcore-actions
+SourceCode: https://github.com/colonelpanic8/soundcore-actions
+IssueTracker: https://github.com/colonelpanic8/soundcore-actions/issues
+
+# What this project publishes is a patch applied to Anker's released APK, not a
+# build from source, so the anti-features describe the whole shipped artifact
+# rather than just the patch.
+AntiFeatures:
+  UpstreamNonFree:
+    en-US: >-
+      The published APK is Anker's proprietary Soundcore application with a
+      small patch applied. Only the patch and the build tooling are open source;
+      the overwhelming majority of the shipped code has no available source.
+  NonFreeAssets:
+    en-US: >-
+      Soundcore's artwork, sounds, firmware images, and other bundled assets are
+      redistributed unmodified under Anker's terms, not a free license.
+  NonFreeDep:
+    en-US: >-
+      The bundled Soundcore code depends on proprietary native libraries and
+      Google Play services.
+  NonFreeNet:
+    en-US: >-
+      Soundcore talks to Anker's proprietary cloud services for accounts,
+      firmware updates, and product features. The patch adds no network access
+      of its own.
+  Tracking:
+    en-US: >-
+      Soundcore includes Anker's analytics and reports usage back to its
+      servers. Nothing in this patch removes or disables that.
+
+# Versions are discovered from the APK placed in repo/ by
+# scripts/fdroid/build-repo.sh, so there is no update checking to configure.
+UpdateCheckMode: None

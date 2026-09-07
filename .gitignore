@@ -1,0 +1,9 @@
+build/
+*.keystore
+*.jks
+*.apk
+*.aab
+*.zip
+__pycache__/
+.ruff_cache/
+.playwright-cli/

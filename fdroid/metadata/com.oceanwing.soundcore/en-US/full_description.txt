@@ -1,0 +1,32 @@
+Soundcore Actions is an unofficial, patched build of Anker's Soundcore app. It
+exists so that the things Soundcore already knows how to launch can launch
+something you picked instead.
+
+The patch commandeers components the app itself declares — the Anka assistant,
+the translation screens, and other activities, services, and manifest-declared
+broadcast receivers — and routes each one to an action of your choosing: open an
+app, follow a link, fire an Android intent, or send a broadcast. A settings
+screen pairs each source component with its action, and a recent-events view
+shows what fired and what it triggered, so a mapping can be confirmed without
+guessing. Out of the box, three actions are mapped to Paseo Live Voice.
+
+What can be remapped is bounded by what the earbuds report. The firmware exposes
+a fixed set of events, and the patch works by taking over components Soundcore
+already declares in its manifest. It does not invent new physical gestures, and
+it does not hook internal callbacks or receivers the app registers at runtime.
+Everything else is untouched: the earbuds still pair, connect, update firmware,
+and expose their normal settings through Anker's own code.
+
+This is not a rebuild from source. The published APK is Anker's release APK with
+an added launcher, a patched manifest, and a new signature, so it carries all of
+Soundcore's proprietary code, assets, network services, and analytics with it.
+It is signed with this project's key rather than Anker's, which means it cannot
+upgrade an existing Play Store install in place: the official copy has to be
+uninstalled first, and that clears its app data. Installing Anker's build again
+restores the original.
+
+Only the patch, the build tooling, and this repository's automation are open
+source. The source for Soundcore itself is not available and is not distributed
+here.
+
+Not affiliated with, endorsed by, or supported by Anker or Oceanwing.

@@ -1,0 +1,8 @@
+{
+  "package": "com.oceanwing.soundcore",
+  "versionName": "5.0.21",
+  "versionCode": 423,
+  "sha256": "5e63575ee41bbe0bc3b27d5b1cfb61e4adf0ba1201a66ebcbad262d4b3c00181",
+  "inputArchive": "https://github.com/colonelpanic8/soundcore-actions/releases/download/inputs-soundcore-5.0.21/soundcore-5.0.21-input.zip",
+  "archiveSha256": "ded9a39e6fd0c19883a0d9f766f78e94435f2f9e0993c3ebe559d96136e4b12e"
+}

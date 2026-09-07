@@ -1,0 +1,1 @@
+Remap Soundcore's own screens and services to apps, links, or intents.

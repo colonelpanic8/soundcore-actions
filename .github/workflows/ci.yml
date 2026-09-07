@@ -1,0 +1,33 @@
+name: Source checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Python format and lint
+        run: |
+          pip install ruff==0.16.5
+          ruff format --check direct-patch/build.py scripts/*.py tests/test_package.py
+          ruff check direct-patch/build.py scripts/*.py tests/test_package.py
+      - name: Packaging regression tests
+        run: python -m unittest discover -s tests -p test_package.py -v
+      - name: Java formatting
+        run: |
+          curl --fail --location --retry 3 -o /tmp/google-java-format.jar https://github.com/google/google-java-format/releases/download/v1.36.1/google-java-format-1.36.1-all-deps.jar
+          java -jar /tmp/google-java-format.jar --dry-run --set-exit-if-changed direct-patch/PatchResources.java direct-patch/src/com/colonelpanic/soundcorepatch/*.java tests/android/com/colonelpanic/soundcorepatch/*.java tests/android/com/colonelpanic/soundcoretest/*.java

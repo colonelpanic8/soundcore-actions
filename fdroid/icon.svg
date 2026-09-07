@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Soundcore Actions">
+  <rect width="512" height="512" rx="112" fill="#14303A"/>
+  <!-- Earbud: driver housing plus the stem that hangs below the ear. -->
+  <g fill="#4FD1C5">
+    <circle cx="146" cy="196" r="66"/>
+    <rect x="116" y="196" width="60" height="146" rx="30"/>
+  </g>
+  <!-- The gesture leaves the earbud and lands in another app. -->
+  <g fill="none" stroke="#F6F7F4" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M228 256h116"/>
+    <path d="M296 208l48 48-48 48"/>
+  </g>
+  <rect x="366" y="210" width="92" height="92" rx="26" fill="#F2A65A"/>
+</svg>
