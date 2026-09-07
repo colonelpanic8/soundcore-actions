@@ -82,6 +82,9 @@ telemetry. Soundcore's own bundled services and permissions remain present.
 
 ## Development
 
+See the [current architecture and review brief](docs/current-approach.md) for
+the interception mechanism, verified behavior, limitations, and open questions.
+
 See [building and verification](direct-patch/README.md). `version.json` controls
 both the APK version and GitHub release tag. Releases keep the same signing key
 so Obtainium can install updates without clearing app data.
