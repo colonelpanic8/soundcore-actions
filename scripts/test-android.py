@@ -59,6 +59,14 @@ run(
 )
 run(
     tools / "aapt2",
+    "compile",
+    "--dir",
+    root / "tests/android/res",
+    "-o",
+    out / "resources.zip",
+)
+run(
+    tools / "aapt2",
     "link",
     "--manifest",
     root / "tests/android/AndroidManifest.xml",
@@ -66,6 +74,7 @@ run(
     android,
     "-o",
     out / "unsigned.apk",
+    out / "resources.zip",
 )
 with zipfile.ZipFile(out / "unsigned.apk", "a") as apk:
     apk.write(out / "classes.dex", "classes.dex")

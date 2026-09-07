@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="translation_anker_voice_assistant">Anka Voice Assistant</string>
+    <string name="fanyi_ai_translation">AI Translation</string>
+</resources>
