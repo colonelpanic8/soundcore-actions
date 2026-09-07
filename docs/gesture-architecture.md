@@ -49,12 +49,19 @@ AI group (`Cmm2BtDispatch.p`):
 handler is the audio-note recorder product family; nothing suggests the Liberty
 5 Pro firmware reports raw key presses.
 
-So for these earbuds there are exactly two gesture functions that produce an
-app-visible event: **Anka** and **AI translation**. Two gestures assigned to the
-same function are indistinguishable on the phone. The System Voice Assistant
-function goes to Android's default assistant and never enters the Soundcore
-process, which is why keeping Gemini as the default assistant is unaffected by
-this project.
+Through the inspected vendor path, two gesture functions were identified that
+produce an app-visible event: **Anka** and **AI translation**. Neither event
+carries a gesture or side identifier, so two gestures assigned to the same
+function would be indistinguishable on the phone through this path. No raw
+gesture reporting was found for the Liberty 5 Pro, but the app dispatcher and a
+stripped product data source cannot prove what the firmware is able to send:
+the firmware may have functions or packets the app never registers for. Treat
+"only two events" as an inference about the vendor app, not a verified limit of
+the firmware, until a hardware or protocol test says otherwise. The System
+Voice Assistant function is expected to go to Android's default assistant
+through the standard Bluetooth profiles rather than the Soundcore process; that
+is consistent with Gemini remaining the default assistant, but it was not
+traced here.
 
 ## Who turns the Anka event into a screen
 
@@ -76,31 +83,43 @@ vendor's gesture handling.
 
 ## Consequences for the design
 
-- **Adding picker rows is possible but pointless on its own.** A new row needs
-  a firmware code, and the only codes that reach the phone are already used by
-  Anka and AI translation.
-- **Genuinely distinct hardware-triggered actions are limited to two** on this
-  firmware (Anka, AI translation), plus the start/stop flag on each event if one
-  wanted to distinguish a first press from a second.
-- **An earlier hook is available and would be better than the component
-  factory.** Registering our own `Cmm2BtEventCallback` proxy on
-  `Cmm2BtDeviceManager` (the same technique `WindDevice` uses) receives
-  `getAIChatStartCmdCallback` and `getAudioRecordCmdCallback` directly. That
-  would distinguish a physical gesture from manual navigation, skip the
-  vendor's AI consent dialog, and not depend on which vendor listener happens
-  to be registered. It still requires the vendor process to be alive with the
-  SPP link connected, and it has not been validated with a physical gesture.
+- **Adding picker rows is possible but not useful on its own.** A new row
+  needs a firmware code the earbuds act on, and the only codes known to reach
+  the phone through the inspected path are the ones Anka and AI translation
+  already use. Whether unused codes exist that the firmware would forward to
+  the phone is unknown.
+- **Distinct hardware-triggered actions are currently bounded by those two
+  identified events** (plus the start/stop flag on each event, if one wanted
+  to distinguish a first press from a second). Widening that requires either
+  evidence of additional firmware events or firmware changes; neither has been
+  tested.
+- **A proposed earlier hook to validate.** Registering our own
+  `Cmm2BtEventCallback` proxy on `Cmm2BtDeviceManager` (the same technique
+  `WindDevice` uses) should receive `getAIChatStartCmdCallback` and
+  `getAudioRecordCmdCallback` directly. If it does, it could distinguish a
+  physical gesture from manual navigation, avoid the vendor's AI consent
+  dialog, and not depend on which vendor listener happens to be registered.
+  None of that is proven: it requires the vendor process to be alive with the
+  SPP link connected, and no physical gesture has been observed through it.
 - **Labels are only labels.** Showing "Paseo Live Voice" in the picker changes
   nothing in the firmware; the earbuds still store the Anka code.
 
 ## Smallest next experiment
 
-Add a temporary stack-trace log to `ComponentFactory.instantiateActivity` for
-`AIChatActivity`, perform a real Anka gesture with the app in the foreground,
-then again with the app in the background. The trace shows the vendor call
-chain from `Cmm2BtDispatch.p` to `startActivity`, and the background run answers
-the open question above. If the callback fires in the background, the proxy
-listener design can replace the component factory for gesture-driven actions.
+A stack trace inside `ComponentFactory.instantiateActivity` would not help: the
+factory runs after the Android framework's asynchronous launch dispatch, so the
+original callback-to-`startActivity` caller chain is gone by then. Instead,
+register a temporary logging `Cmm2BtEventCallback` proxy (as the wind probe
+did) that timestamps every raw callback, and timestamp `AIChatActivity`
+creation in the factory. Perform a real Anka gesture with the app in the
+foreground, then again with no Soundcore screen open. Matching timestamps show
+whether `getAIChatStartCmdCallback` fires at all and whether it leads to an
+activity launch in each state. If the caller chain itself matters, instrument
+the sending `startActivity` site (for example by wrapping the vendor
+`Instrumentation` or logging in `Activity.startActivity` of the mapped
+component) rather than the receiving factory. If the callback fires in the
+background, the proxy listener design becomes a candidate to replace the
+component factory for gesture-driven actions, subject to its own validation.
 
 ## How the evidence was gathered
 
