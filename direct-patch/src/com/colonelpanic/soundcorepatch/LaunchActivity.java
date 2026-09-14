@@ -11,7 +11,7 @@ public final class LaunchActivity extends Activity {
     Rules.Action action = source == null ? null : Rules.get(this, "activity", source);
     if (action != null && "wind".equals(action.type)) setTheme(android.R.style.Theme_NoDisplay);
     super.onCreate(state);
-    if (action != null) ActionRunner.run(this, action);
+    if (action != null && EarbudActions.dispatchActivity(source)) ActionRunner.run(this, action);
     finish();
   }
 }

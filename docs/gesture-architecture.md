@@ -26,9 +26,18 @@ inference, not proof.
    Android routes to the media session or the default assistant, not to the
    Soundcore app.
 
-The current design only substitutes Android components after the vendor app has
-already decided to open a screen. That is a choice made because the vendor code
-was unreadable at the time, not something the firmware requires.
+The original design only substituted Android components after the vendor app
+decided to open a screen. As of 2026-09-08, `EarbudActions` also handles Liberty 5
+Pro Anka start callbacks directly and dispatches the existing mapping without a
+screen launch. The listener reattaches after the vendor clears its callbacks on
+reconnect. Translation mappings still use component substitution. Listener
+attachment has been verified in the vendor process; the physical gesture path
+still needs end-to-end verification.
+
+Android froze the main process during the background hardware check, preventing
+the listener from running. `EarbudService` now maintains a connected-device
+foreground service while Anka is mapped and Bluetooth permission is available.
+It stops when mappings are disabled or Anka is removed.
 
 ## The firmware events that actually reach the app
 
@@ -93,10 +102,12 @@ vendor's gesture handling.
   to distinguish a first press from a second). Widening that requires either
   evidence of additional firmware events or firmware changes; neither has been
   tested.
-- **A proposed earlier hook to validate.** Registering our own
+- **The earlier hook now implemented for Anka.** Registering our own
   `Cmm2BtEventCallback` proxy on `Cmm2BtDeviceManager` (the same technique
   `WindDevice` uses) should receive `getAIChatStartCmdCallback` and
-  `getAudioRecordCmdCallback` directly. If it does, it could distinguish a
+  `getAudioRecordCmdCallback` directly. Anka start events now dispatch the mapping;
+  translation events are logged without choosing between the translation modes.
+  This can distinguish a
   physical gesture from manual navigation, avoid the vendor's AI consent
   dialog, and not depend on which vendor listener happens to be registered.
   None of that is proven: it requires the vendor process to be alive with the

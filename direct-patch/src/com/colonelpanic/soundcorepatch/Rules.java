@@ -4,8 +4,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -77,6 +80,7 @@ public final class Rules {
       throw new IllegalStateException(impossible);
     }
     save(context, config);
+    EarbudService.sync(context);
   }
 
   static Action stored(Context context, String kind, String name) {
@@ -101,6 +105,64 @@ public final class Rules {
       else rules.put(kind + ":" + name, new JSONObject(action.encode()));
     } catch (JSONException error) {
       throw new IllegalStateException(error);
+    }
+    save(context, config);
+    if ("activity".equals(kind) && ANKA.equals(name)) EarbudService.sync(context);
+  }
+
+  static SpokenSettings spoken(Context context) {
+    JSONObject value = config(context).optJSONObject("spokenMessages");
+    Set<String> packages = new LinkedHashSet<>();
+    JSONArray stored = value == null ? null : value.optJSONArray("packages");
+    if (stored != null)
+      for (int i = 0; i < stored.length(); i++) {
+        String packageName = stored.optString(i).trim();
+        if (!packageName.isEmpty()) packages.add(packageName);
+      }
+    return new SpokenSettings(
+        value != null && value.optBoolean("enabled", false),
+        value == null || value.optBoolean("readBody", true),
+        packages);
+  }
+
+  static synchronized void setSpokenEnabled(Context context, boolean enabled) {
+    updateSpoken(context, "enabled", enabled);
+  }
+
+  static synchronized void setSpokenReadBody(Context context, boolean readBody) {
+    updateSpoken(context, "readBody", readBody);
+  }
+
+  private static void updateSpoken(Context context, String name, boolean value) {
+    JSONObject config = config(context);
+    try {
+      JSONObject spoken = config.optJSONObject("spokenMessages");
+      if (spoken == null) {
+        spoken = new JSONObject();
+        config.put("spokenMessages", spoken);
+      }
+      spoken.put(name, value);
+    } catch (JSONException impossible) {
+      throw new IllegalStateException(impossible);
+    }
+    save(context, config);
+  }
+
+  static synchronized void setSpokenPackages(Context context, Set<String> packageNames) {
+    JSONObject config = config(context);
+    try {
+      JSONObject spoken = config.optJSONObject("spokenMessages");
+      if (spoken == null) {
+        spoken = new JSONObject();
+        config.put("spokenMessages", spoken);
+      }
+      JSONArray packages = new JSONArray();
+      List<String> sorted = new ArrayList<>(packageNames);
+      Collections.sort(sorted);
+      for (String packageName : sorted) packages.put(packageName);
+      spoken.put("packages", packages);
+    } catch (JSONException impossible) {
+      throw new IllegalStateException(impossible);
     }
     save(context, config);
   }
@@ -178,6 +240,18 @@ public final class Rules {
     String simple =
         name.substring(name.lastIndexOf('.') + 1).replaceAll("(Activity|Service|Receiver)$", "");
     return simple.replaceAll("([a-z])([A-Z])", "$1 $2").replace('_', ' ').trim();
+  }
+
+  static final class SpokenSettings {
+    final boolean enabled;
+    final boolean readBody;
+    final Set<String> packageNames;
+
+    SpokenSettings(boolean enabled, boolean readBody, Set<String> packageNames) {
+      this.enabled = enabled;
+      this.readBody = readBody;
+      this.packageNames = Collections.unmodifiableSet(new LinkedHashSet<>(packageNames));
+    }
   }
 
   static final class Action {

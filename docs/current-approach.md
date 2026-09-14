@@ -2,6 +2,17 @@
 
 Status: Soundcore Actions v0.1.1, reviewed on 2026-09-07.
 
+Implementation update, 2026-09-08: `EarbudActions` now listens directly for
+Liberty 5 Pro Anka start callbacks and dispatches the existing Anka mapping.
+`AnkaTrigger` prevents duplicate dispatch through the callback and activity paths.
+Background app launches require Soundcore's existing overlay permission. The two
+launchers also have separate task affinities. The component-only design reviewed
+below is historical; the new firmware-to-callback path still needs a physical
+gesture test, beyond its Android runtime tests and verified listener attachment.
+Device debugging also found the process frozen in Android's cached state after
+leaving Soundcore. `EarbudService` now uses a connected-device foreground service
+with an ongoing notification while Anka mappings are enabled.
+
 ## Purpose
 
 Let existing Soundcore Liberty 5 Pro controls run user-selected Android actions,
@@ -66,6 +77,7 @@ All patch Java classes live in
 | `ActionRunner.java` | Builds app-launch, link, intent, or broadcast intents and dispatches them; validates basic input and rejects direct targets in our own patch namespace. |
 | `Rules.java` | Stores mappings in an AtomicFile JSON document, reads them across app processes, migrates prototype preferences, and keeps bounded component history in per-process files. |
 | `SettingsActivity.java` | Source-to-action cards, enable switch, editor, app picker, test button, restore-original behavior, searchable component browser, and recent events. |
+| `MessageReaderService.java`, `SpokenMessages.java` | Opt-in notification listener, message extraction and deduplication, screen/output gating, and local text-to-speech playback. |
 | `ControlLabels.java` | Attempts to replace known native Anka/translation TextView labels with configured action names. Does not rewrite Flutter-rendered text. |
 | `direct-patch/PatchResources.java` | Alters the manifest to install the factory and settings launcher, keeping original activity declarations. |
 | `direct-patch/build.py` | Adds compiled patch code as a second DEX, prepares native libraries, signs, and verifies the APK. |
@@ -115,6 +127,10 @@ user's explicit requirement to keep Gemini as the default.
   solve every concurrent read-modify-write case across multiple processes.
 - Recursive mappings through other Soundcore components or implicit intents
   deserve review; current validation only rejects direct patch-class targets.
+- Notification Access is granted to a component inside the modified proprietary
+  Soundcore package. The reader is isolated in a named process and does not persist
+  message text, but a separate open-source companion would provide a stronger
+  package-level trust boundary.
 - Native gesture-label rewriting is implemented but not yet verified on the
   physical controls page. The two launcher entries are not architecturally
   necessary. Do not disable the original WelcomeActivity to hide its icon:

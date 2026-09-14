@@ -10,6 +10,14 @@ are stored atomically and read across Soundcore processes. Recent events are kep
 in separate bounded files for each process. Native control labels update from the
 mappings without changing text input fields.
 
+The optional spoken-message reader is a `NotificationListenerService` in the
+dedicated `:message_reader` process. It requires user-granted Notification Access
+and an explicit app allowlist. It speaks only recent message notifications while
+the screen is non-interactive and a Soundcore-named Bluetooth audio output is
+connected. Text-to-speech requests transient ducking audio focus, queues a bounded
+number of messages, suppresses duplicate notification updates, and stops when the
+screen turns on. Message text is never persisted.
+
 ## Build
 
 Requires Python 3.11+, JDK 21, Android SDK platform 36 and build tools 36.0.0.
@@ -35,6 +43,17 @@ into the standard `lib/<abi>/` paths for ABIs already supported by the app. This
 avoids Soundcore's lookup of a split APK that no longer exists. The asset copies
 remain available for code that uses them directly.
 
+The upstream application enables a native signing-certificate guard during
+startup. For a repackaged APK it returns empty API signing material, causing
+`Err_InvalidRequest` responses that the login screen reports as an invalid email.
+The build verifies the native asset's SHA-256 and replaces the certificate-flag
+load with `mov w8, #0` at ARM64 offsets `0x2554` and `0x2828`, inside
+`getAppRequestSignSecret` and `getAppRequestPrePublicSecret`. Both APK library
+paths use that patched asset. The global flag and `getDataSecret` are unchanged:
+disabling the global guard would change database/MMKV keys and break existing
+installations. Signing, request encryption, and server authentication otherwise
+use the original implementation. Unexpected native binaries fail the build.
+
 The build compiles Java with `-Xlint:all`, aligns native libraries to 16 KB pages,
 signs the combined APK, and verifies both signature and alignment.
 
@@ -58,7 +77,40 @@ python scripts/test-android.py --sdk "$ANDROID_HOME" --jdk "$JAVA_HOME" \
 The tests package the compiled patch in a separate Android harness, avoiding
 Soundcore’s initialization under instrumentation and leaving its data untouched.
 They cover typed intent extras, invalid targets, arbitrary component interception,
-removal/global disable, and actual delivery of a custom broadcast.
+removal/global disable, repeated replacement screen and broadcast delivery, and
+switching between the two launcher entries without restarting the process. Spoken
+message tests cover messaging-style and category fallback extraction, group-summary
+filtering, speech text, output classification, and preference persistence.
+Packaging tests cover the exact scope of native instruction changes, rejection
+of unexpected binaries, and replacement of both native library paths. Verify
+fresh login and a cold restart on an existing installation to check data
+compatibility.
+
+The mappings launcher has its own task affinity and uses `singleTask`, so it
+returns to the existing customization page independently of Soundcore's normal
+task. Keep those manifest attributes in sync with the Android test harness.
+
+`EarbudActions` registers a callback on the pinned Bluetooth manager in the main
+Soundcore process. Successful Anka start events from D1203 dispatch the existing
+Anka mapping directly. The listener is re-registered after the vendor clears its
+callback list on reconnect. `AnkaTrigger` debounces duplicate packets and avoids
+dispatching twice when a vendor activity and the earbud callback both arrive.
+Failed events, stop events, unsupported products, and disabled or removed
+mappings do not dispatch. Translation callbacks are logged, but their mappings
+still use the component hook.
+
+`EarbudService` keeps the main process out of Android's cached-process freezer
+using a `connectedDevice` foreground service and an ongoing notification. It
+starts when an activity becomes visible with an enabled Anka mapping and Bluetooth
+permission. Disabling mappings or removing Anka stops it. The original APK already
+declares the required foreground-service and Bluetooth permissions. Runtime tests
+exercise service startup, retention after leaving the activity, and stopping.
+
+Opening an app from a background earbud callback requires Soundcore's existing
+`SYSTEM_ALERT_WINDOW` permission. Settings links to Android's permission screen;
+broadcast and wind actions do not require that permission. Runtime tests exercise
+the listener through a fake vendor manager, including actual broadcast delivery
+and reconnection. A physical press is still needed to validate the firmware path.
 
 For device verification, exercise Anka and both translation modes, change a target
 in the UI, test it, and restore the original behavior. Check native gesture labels,

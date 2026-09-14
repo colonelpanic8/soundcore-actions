@@ -54,6 +54,19 @@ public final class SettingsActivity extends Activity {
     showHome();
   }
 
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    showHome();
+  }
+
+  @Override
+  protected void onRestart() {
+    super.onRestart();
+    if (home) showHome();
+  }
+
   private int dp(int value) {
     return Math.round(value * getResources().getDisplayMetrics().density);
   }
@@ -151,6 +164,31 @@ public final class SettingsActivity extends Activity {
           showHome();
         });
     control.addView(enabled, new LinearLayout.LayoutParams(-1, -2));
+    if (Rules.get(this, "activity", Rules.ANKA) != null)
+      text(
+          control,
+          "Anka gestures use an ongoing Earbud actions notification to keep the listener running."
+              + " Disable custom mappings or remove Anka to stop it.",
+          14,
+          muted,
+          false);
+    if (!android.provider.Settings.canDrawOverlays(this)) {
+      text(
+          control,
+          "To open your mapped app from an earbud gesture while Soundcore is in the background,"
+              + " allow Display over other apps.",
+          14,
+          muted,
+          false);
+      button(
+          control,
+          "Allow background app launches",
+          () ->
+              startActivity(
+                  new Intent(
+                      android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                      android.net.Uri.parse("package:" + getPackageName()))));
+    }
     text(
         control,
         enabled.isChecked()
@@ -160,6 +198,7 @@ public final class SettingsActivity extends Activity {
         14,
         muted,
         false);
+    spokenMessagesCard();
     for (String key : Rules.keys(this, "rule:")) {
       int split = key.indexOf(':');
       String kind = key.substring(0, split);
@@ -198,6 +237,125 @@ public final class SettingsActivity extends Activity {
         13,
         muted,
         false);
+  }
+
+  private void spokenMessagesCard() {
+    Rules.SpokenSettings settings = Rules.spoken(this);
+    LinearLayout messages = card(page);
+    text(messages, "SPOKEN MESSAGES", 11, muted, true);
+    Switch enabled = new Switch(this);
+    enabled.setText("Read incoming messages when the screen is off");
+    enabled.setTextSize(17);
+    enabled.setTextColor(ink);
+    enabled.setChecked(settings.enabled);
+    enabled.setPadding(0, dp(8), 0, dp(8));
+    enabled.setOnCheckedChangeListener(
+        (view, checked) -> {
+          Rules.setSpokenEnabled(this, checked);
+          showHome();
+        });
+    messages.addView(enabled, new LinearLayout.LayoutParams(-1, -2));
+
+    boolean access = MessageReaderService.accessGranted(this);
+    text(
+        messages,
+        access
+            ? "Notification access is enabled."
+            : "Notification access is required before messages can be read.",
+        14,
+        access ? accent : Color.rgb(181, 47, 54),
+        false);
+    button(
+        messages,
+        access ? "Manage notification access" : "Grant notification access",
+        () ->
+            startActivity(
+                new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+
+    List<String> selectedNames = new ArrayList<>();
+    for (String packageName : settings.packageNames) {
+      try {
+        selectedNames.add(
+            getPackageManager()
+                .getApplicationLabel(getPackageManager().getApplicationInfo(packageName, 0))
+                .toString());
+      } catch (PackageManager.NameNotFoundException missing) {
+        selectedNames.add(packageName);
+      }
+    }
+    selectedNames.sort(String.CASE_INSENSITIVE_ORDER);
+    text(
+        messages,
+        selectedNames.isEmpty()
+            ? "No messaging apps selected."
+            : "Apps: " + String.join(", ", selectedNames),
+        14,
+        muted,
+        false);
+    button(messages, "Choose messaging apps", this::chooseMessagingApps);
+
+    Switch body = new Switch(this);
+    body.setText("Read message text");
+    body.setTextSize(16);
+    body.setTextColor(ink);
+    body.setChecked(settings.readBody);
+    body.setOnCheckedChangeListener((view, checked) -> Rules.setSpokenReadBody(this, checked));
+    messages.addView(body, new LinearLayout.LayoutParams(-1, -2));
+
+    List<String> outputs = SpokenMessages.soundcoreOutputs(this);
+    text(
+        messages,
+        outputs.isEmpty()
+            ? "Connect the Liberty 5 Pro as a Bluetooth audio output to hear messages."
+            : "Soundcore output detected: " + String.join(", ", outputs),
+        13,
+        muted,
+        false);
+    text(
+        messages,
+        "Message contents stay in memory only and are sent to Android's text-to-speech service."
+            + " Speech stops if the screen turns on.",
+        13,
+        muted,
+        false);
+  }
+
+  private void chooseMessagingApps() {
+    Intent launcher = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+    List<ResolveInfo> resolved = getPackageManager().queryIntentActivities(launcher, 0);
+    java.util.Map<String, ResolveInfo> unique = new java.util.LinkedHashMap<>();
+    resolved.sort(
+        Comparator.comparing(
+            item -> item.loadLabel(getPackageManager()).toString(), String.CASE_INSENSITIVE_ORDER));
+    for (ResolveInfo app : resolved)
+      if (!getPackageName().equals(app.activityInfo.packageName))
+        unique.putIfAbsent(app.activityInfo.packageName, app);
+    List<ResolveInfo> apps = new ArrayList<>(unique.values());
+    String[] names = new String[apps.size()];
+    boolean[] checked = new boolean[apps.size()];
+    java.util.Set<String> selected = new java.util.LinkedHashSet<>(Rules.spoken(this).packageNames);
+    for (int i = 0; i < apps.size(); i++) {
+      names[i] = apps.get(i).loadLabel(getPackageManager()).toString();
+      checked[i] = selected.contains(apps.get(i).activityInfo.packageName);
+    }
+    new AlertDialog.Builder(this)
+        .setTitle("Messaging apps")
+        .setMultiChoiceItems(
+            names,
+            checked,
+            (dialog, index, isChecked) -> {
+              String packageName = apps.get(index).activityInfo.packageName;
+              if (isChecked) selected.add(packageName);
+              else selected.remove(packageName);
+            })
+        .setPositiveButton(
+            "Save",
+            (dialog, which) -> {
+              Rules.setSpokenPackages(this, selected);
+              showHome();
+            })
+        .setNegativeButton("Cancel", null)
+        .show();
   }
 
   private static String kindLabel(String kind) {

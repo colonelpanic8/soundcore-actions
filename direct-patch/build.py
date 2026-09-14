@@ -21,12 +21,34 @@ def digest(path):
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
+SECURITY_ASSET = "assets/lib/arm64-v8a/libscsecurity.so"
+SECURITY_SHA256 = "c8fbd30246fbe5fdfa73a6088dc4897208e7c2000a1d423d1414bcf24c79fef9"
+
+
+def patch_request_signing(data):
+    if hashlib.sha256(data).hexdigest() != SECURITY_SHA256:
+        raise ValueError("Unexpected scsecurity library; refusing to patch")
+    patched = bytearray(data)
+    # Only the two request-secret getters ignore the vendor certificate flag.
+    # Keep getDataSecret unchanged so existing databases and MMKV remain readable.
+    for offset in (0x2554, 0x2828):
+        if patched[offset : offset + 4] != bytes.fromhex("08014039"):
+            raise ValueError("Unexpected request-signing instruction")
+        patched[offset : offset + 4] = bytes.fromhex("08008052")  # mov w8, #0
+    return bytes(patched)
+
+
 def repack(source, output, manifest, dex):
     with zipfile.ZipFile(source) as old, zipfile.ZipFile(output, "w") as new:
         if "classes2.dex" in old.namelist():
             raise ValueError(
                 "Upstream already has classes2.dex; refusing to overwrite code"
             )
+        security = (
+            patch_request_signing(old.read(SECURITY_ASSET))
+            if SECURITY_ASSET in old.namelist()
+            else None
+        )
         for entry in old.infolist():
             if entry.filename == "stamp-cert-sha256" or (
                 entry.filename.startswith("META-INF/")
@@ -36,6 +58,11 @@ def repack(source, output, manifest, dex):
             data = (
                 manifest if entry.filename == "AndroidManifest.xml" else old.read(entry)
             )
+            if security is not None and entry.filename in (
+                SECURITY_ASSET,
+                SECURITY_ASSET.removeprefix("assets/"),
+            ):
+                data = security
             new.writestr(copy.copy(entry), data)
         abis = {
             name.split("/")[1]
@@ -49,7 +76,11 @@ def repack(source, output, manifest, dex):
                 target = entry.filename.removeprefix("assets/")
                 if target.split("/")[1] in abis and target not in old.namelist():
                     new.writestr(
-                        target, old.read(entry), compress_type=zipfile.ZIP_STORED
+                        target,
+                        security
+                        if entry.filename == SECURITY_ASSET
+                        else old.read(entry),
+                        compress_type=zipfile.ZIP_STORED,
                     )
         new.writestr("classes2.dex", dex, compress_type=zipfile.ZIP_STORED)
 

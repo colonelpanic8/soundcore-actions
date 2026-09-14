@@ -32,6 +32,8 @@ public final class ComponentFactory extends AppComponentFactory {
   }
 
   private boolean intercept(String kind, String name) {
+    if (application != null && application.getBaseContext() != null)
+      EarbudActions.install(application);
     if (name.startsWith("com.colonelpanic.soundcorepatch.")
         || application == null
         || application.getBaseContext() == null) return false;

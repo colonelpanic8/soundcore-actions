@@ -34,6 +34,12 @@ public final class PatchResources {
       settings
           .getOrCreateAndroidAttribute("exported", android.R.attr.exported)
           .setValueAsBoolean(true);
+      settings
+          .getOrCreateAndroidAttribute("taskAffinity", android.R.attr.taskAffinity)
+          .setValueAsString("com.oceanwing.soundcore.actions");
+      settings
+          .getOrCreateAndroidAttribute("launchMode", android.R.attr.launchMode)
+          .setValueAsDecimal(android.content.pm.ActivityInfo.LAUNCH_SINGLE_TASK);
       ResXmlAttribute theme = settings.getOrCreateAndroidAttribute("theme", android.R.attr.theme);
       theme.setValueType(ValueType.REFERENCE);
       theme.setData(android.R.style.Theme_Material_Light_NoActionBar);
@@ -53,16 +59,51 @@ public final class PatchResources {
       wind.getOrCreateAndroidAttribute("name", NAME)
           .setValueAsString(PREFIX + "WindToggleReceiver");
       wind.getOrCreateAndroidAttribute("exported", android.R.attr.exported).setValueAsBoolean(true);
-      ResXmlElement query =
-          manifest.getManifestElement().getOrCreateElement("queries").newElement("intent");
-      query
+      ResXmlElement listener = app.newElement("service");
+      listener.getOrCreateAndroidAttribute("name", NAME).setValueAsString(PREFIX + "EarbudService");
+      listener
+          .getOrCreateAndroidAttribute("exported", android.R.attr.exported)
+          .setValueAsBoolean(false);
+      listener
+          .getOrCreateAndroidAttribute(
+              "foregroundServiceType", android.R.attr.foregroundServiceType)
+          .setValueAsHex(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
+      ResXmlElement messages = app.newElement("service");
+      messages
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString(PREFIX + "MessageReaderService");
+      messages
+          .getOrCreateAndroidAttribute("label", android.R.attr.label)
+          .setValueAsString("Spoken messages");
+      messages
+          .getOrCreateAndroidAttribute("permission", android.R.attr.permission)
+          .setValueAsString("android.permission.BIND_NOTIFICATION_LISTENER_SERVICE");
+      messages
+          .getOrCreateAndroidAttribute("process", android.R.attr.process)
+          .setValueAsString(":message_reader");
+      messages
+          .getOrCreateAndroidAttribute("exported", android.R.attr.exported)
+          .setValueAsBoolean(false);
+      ResXmlElement messageFilter = messages.newElement("intent-filter");
+      messageFilter
+          .newElement("action")
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("android.service.notification.NotificationListenerService");
+      ResXmlElement queries = manifest.getManifestElement().getOrCreateElement("queries");
+      ResXmlElement launcherQuery = queries.newElement("intent");
+      launcherQuery
           .newElement("action")
           .getOrCreateAndroidAttribute("name", NAME)
           .setValueAsString("android.intent.action.MAIN");
-      query
+      launcherQuery
           .newElement("category")
           .getOrCreateAndroidAttribute("name", NAME)
           .setValueAsString("android.intent.category.LAUNCHER");
+      queries
+          .newElement("intent")
+          .newElement("action")
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("android.intent.action.TTS_SERVICE");
       manifest.setVersionName(args[2]);
       manifest.setVersionCode(Integer.parseInt(args[3]));
       manifest.setMinSdkVersion(28);

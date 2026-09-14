@@ -50,6 +50,14 @@ The signing certificate SHA-256 is:
 4. In Soundcore's earbud controls, assign the corresponding function to a gesture.
    Supported native Anka and translation labels reflect the mapped action name.
 
+On Liberty 5 Pro, Anka gestures dispatch the mapping directly from the Bluetooth
+callback, without waiting for Soundcore to open its Anka screen. To open another
+app while Soundcore is in the background, choose **Allow background app launches**
+and enable Android's **Display over other apps** permission for Soundcore. Open
+Soundcore to establish the earbud connection. An ongoing **Earbud actions**
+notification keeps the listener running in the background. Disabling custom
+mappings or removing the Anka mapping stops this service.
+
 The initial mappings open **Paseo Live Voice** (`paseo://live-voice` in
 `sh.paseo.assembly`). They can be changed independently. **Use original Soundcore
 behavior** removes one mapping; the main switch temporarily disables all of them.
@@ -82,10 +90,32 @@ The explicit broadcast and the test button work independently of mappings.
 Other local apps can invoke this exported receiver; it accepts only the fixed
 wind-toggle action and does not accept arbitrary commands or device addresses.
 
+## Spoken messages
+
+Soundcore Actions can read incoming message notifications through the connected
+Soundcore earbuds while the phone screen is off. In **soundcore (actions)**,
+enable **Read incoming messages when the screen is off**, choose the messaging
+apps to allow, and grant Android's Notification Access when prompted. Message
+text can be disabled to announce only the sender.
+
+The reader accepts Android messaging-style notifications and message-category
+fallbacks from the selected apps. It ignores group summaries and duplicate
+updates, refuses to speak through the phone speaker or unrelated audio devices,
+and stops speech when the screen turns on. Music temporarily ducks while the
+configured Android text-to-speech engine reads the message. Notification contents
+stay in Soundcore Actions memory only; the selected TTS engine's privacy behavior
+still applies.
+
+The notification listener runs in a dedicated `:message_reader` process, but it
+is still part of the modified Soundcore package. Notification Access is powerful:
+only enable it if you trust this build, and revoke it at any time from Android's
+Notification Access settings.
+
 ## What can be repurposed?
 
-Mappings intercept Soundcore's Android activity, service, and manifest receiver
-entry points. They are not limited to three hard-coded translation presets.
+Liberty 5 Pro Anka gestures have a direct Bluetooth listener. Other mappings
+intercept Soundcore's Android activity, service, and manifest receiver entry
+points. They are not limited to three hard-coded translation presets.
 Unmapped components are created normally through Soundcore's original factory.
 
 This does **not** create new earbud firmware events or intercept every operation
@@ -99,9 +129,15 @@ its original behavior, which can include device connectivity; Android may restri
 opening another app from the background. Existing component instances must be
 recreated before newly edited mappings can take effect.
 
-Mappings and recent component names/timestamps stay in the app's private storage.
-The patch adds no permissions, accessibility service, root requirement, or remote
-telemetry. Soundcore's own bundled services and permissions remain present.
+Mappings, spoken-message preferences, and recent component names/timestamps stay
+in the app's private storage. The patch adds no accessibility service, root
+requirement, or remote telemetry. Spoken messages require explicit Notification
+Access; Soundcore's own bundled services and permissions remain present.
+Background app launches use Soundcore's existing **Display over other apps**
+permission when enabled by the user.
+On ARM64, the build patches the vendor certificate check in the two request-secret
+getters, restoring login in the repackaged app. Database encryption behavior is
+preserved so existing app data remains readable.
 
 ## Development
 
