@@ -1,7 +1,6 @@
-Add reliable background earbud actions and optional spoken messages.
+Make AI translation gestures work while Soundcore is in the background.
 
-- Read incoming notifications from selected messaging apps through connected Soundcore earbuds while the screen is off. Sender-only and sender-plus-message modes are available; speech stops when the screen turns on. This is opt-in and requires Android Notification Access.
-- Keep the Liberty 5 Pro Anka listener active with an ongoing connected-device notification, and dispatch physical Anka callbacks without waiting for Soundcore to open its screen.
-- Add a guided Display over other apps permission for mapped background app launches and keep the Soundcore and Actions launchers in independent tasks.
-- Restore Soundcore account login in the repackaged APK by narrowly patching the request-signing certificate check while preserving existing database encryption keys.
-- Expand Android runtime and packaging regression coverage. Existing mappings and app data are preserved.
+- Dispatch the Liberty 5 Pro AI translation callback directly from the Bluetooth listener, the way Anka callbacks already were. A physical gesture test showed the earbud packet always arrives, but with no Soundcore activity alive the vendor opens no screen, so component substitution alone never ran the mapping.
+- Run the **Real-time translation** mapping for that packet, falling back to **Face-to-face translation** when only that one is mapped, because the packet does not name a screen.
+- Keep the ongoing **Earbud actions** notification alive for translation mappings too, not only for Anka.
+- Debounce Anka and translation gestures independently so a gesture and the vendor screen it opens still run the mapping once.

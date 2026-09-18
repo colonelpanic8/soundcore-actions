@@ -107,7 +107,9 @@ public final class Rules {
       throw new IllegalStateException(error);
     }
     save(context, config);
-    if ("activity".equals(kind) && ANKA.equals(name)) EarbudService.sync(context);
+    if ("activity".equals(kind)
+        && (ANKA.equals(name) || REALTIME.equals(name) || FACE.equals(name)))
+      EarbudService.sync(context);
   }
 
   static SpokenSettings spoken(Context context) {

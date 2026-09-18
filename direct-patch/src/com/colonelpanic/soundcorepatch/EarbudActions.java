@@ -14,10 +14,13 @@ import java.lang.reflect.Proxy;
 final class EarbudActions implements Application.ActivityLifecycleCallbacks {
   private static final String TAG = "SoundcoreActions";
   private static final AnkaTrigger trigger = new AnkaTrigger(SystemClock::elapsedRealtime);
+  private static final AnkaTrigger translationTrigger =
+      new AnkaTrigger(SystemClock::elapsedRealtime);
   private static EarbudActions installed;
   private final Application context;
   private final ClassLoader loader;
   private final AnkaTrigger dispatch;
+  private final AnkaTrigger translationDispatch;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private Object manager;
   private Object listener;
@@ -26,9 +29,15 @@ final class EarbudActions implements Application.ActivityLifecycleCallbacks {
   private String lastError;
 
   EarbudActions(Application app, ClassLoader loader, AnkaTrigger dispatch) {
+    this(app, loader, dispatch, new AnkaTrigger(SystemClock::elapsedRealtime));
+  }
+
+  EarbudActions(
+      Application app, ClassLoader loader, AnkaTrigger dispatch, AnkaTrigger translationDispatch) {
     context = app;
     this.loader = loader;
     this.dispatch = dispatch;
+    this.translationDispatch = translationDispatch;
     app.registerActivityLifecycleCallbacks(this);
     handler.post(this::connect);
   }
@@ -39,11 +48,15 @@ final class EarbudActions implements Application.ActivityLifecycleCallbacks {
         || !shell.getPackageName().equals(Application.getProcessName())) return;
     Context app = shell.getApplicationContext();
     Application application = app instanceof Application ? (Application) app : shell;
-    installed = new EarbudActions(application, application.getClassLoader(), trigger);
+    installed =
+        new EarbudActions(application, application.getClassLoader(), trigger, translationTrigger);
   }
 
   static boolean dispatchActivity(String source) {
-    return !Rules.ANKA.equals(source) || trigger.accept(false);
+    if (Rules.ANKA.equals(source)) return trigger.accept(false);
+    if (Rules.REALTIME.equals(source) || Rules.FACE.equals(source))
+      return translationTrigger.accept(false);
+    return true;
   }
 
   private void connect() {
@@ -74,14 +87,17 @@ final class EarbudActions implements Application.ActivityLifecycleCallbacks {
                       Log.i(TAG, "Earbud Anka event: success=" + success + ", start=" + start);
                       handler.post(() -> anka(current, success, start));
                     } else if (method.getName().equals("getAudioRecordCmdCallback")) {
+                      boolean success = Boolean.TRUE.equals(args[0]);
+                      boolean start = Boolean.TRUE.equals(args[1]);
                       Log.i(
                           TAG,
                           "Earbud translation event: success="
-                              + args[0]
+                              + success
                               + ", start="
-                              + args[1]
+                              + start
                               + ", action="
                               + args[2]);
+                      handler.post(() -> translation(current, success, start));
                     }
                     return method.getReturnType() == boolean.class ? false : null;
                   });
@@ -102,12 +118,41 @@ final class EarbudActions implements Application.ActivityLifecycleCallbacks {
   }
 
   private void anka(Object sourceManager, boolean success, boolean start) {
+    event(sourceManager, success, start, "Anka", dispatch, Rules.ANKA);
+  }
+
+  /**
+   * The translation packet names no screen, so the real-time mapping is preferred and the
+   * face-to-face one is used when only it is mapped.
+   */
+  private void translation(Object sourceManager, boolean success, boolean start) {
+    event(
+        sourceManager,
+        success,
+        start,
+        "translation",
+        translationDispatch,
+        Rules.REALTIME,
+        Rules.FACE);
+  }
+
+  private void event(
+      Object sourceManager,
+      boolean success,
+      boolean start,
+      String label,
+      AnkaTrigger gate,
+      String... sources) {
     if (!success || !start || sourceManager != manager) return;
     try {
       Object device = manager.getClass().getMethod("l").invoke(manager);
       if (device == null
           || !"D1203".equals(device.getClass().getMethod("getProductCode").invoke(device))) return;
-      Rules.Action action = Rules.get(context, "activity", Rules.ANKA);
+      Rules.Action action = null;
+      for (String source : sources) {
+        action = Rules.get(context, "activity", source);
+        if (action != null) break;
+      }
       if (action == null) return;
       if (!"wind".equals(action.type)
           && !"broadcast".equals(action.type)
@@ -115,15 +160,15 @@ final class EarbudActions implements Application.ActivityLifecycleCallbacks {
           && !Settings.canDrawOverlays(context)) {
         Log.w(
             TAG,
-            "Anka action needs background launch permission; enable it in soundcore (actions)");
+            label + " action needs background launch permission; enable it in soundcore (actions)");
         return;
       }
-      if (dispatch.accept(true)) {
-        Log.i(TAG, "Dispatching Anka mapping from earbud event");
+      if (gate.accept(true)) {
+        Log.i(TAG, "Dispatching " + label + " mapping from earbud event");
         ActionRunner.run(context, action);
       }
     } catch (ReflectiveOperationException | RuntimeException error) {
-      Log.e(TAG, "Could not handle earbud Anka event", error);
+      Log.e(TAG, "Could not handle earbud " + label + " event", error);
     }
   }
 

@@ -50,13 +50,16 @@ The signing certificate SHA-256 is:
 4. In Soundcore's earbud controls, assign the corresponding function to a gesture.
    Supported native Anka and translation labels reflect the mapped action name.
 
-On Liberty 5 Pro, Anka gestures dispatch the mapping directly from the Bluetooth
-callback, without waiting for Soundcore to open its Anka screen. To open another
-app while Soundcore is in the background, choose **Allow background app launches**
-and enable Android's **Display over other apps** permission for Soundcore. Open
-Soundcore to establish the earbud connection. An ongoing **Earbud actions**
-notification keeps the listener running in the background. Disabling custom
-mappings or removing the Anka mapping stops this service.
+On Liberty 5 Pro, Anka and AI translation gestures dispatch the mapping directly
+from the Bluetooth callback, without waiting for Soundcore to open its own screen.
+The translation packet does not say which screen the vendor would have opened, so
+the **Real-time translation** mapping runs, falling back to **Face-to-face
+translation** when only that one is mapped. To open another app while Soundcore is
+in the background, choose **Allow background app launches** and enable Android's
+**Display over other apps** permission for Soundcore. Open Soundcore to establish
+the earbud connection. An ongoing **Earbud actions** notification keeps the
+listener running in the background. Disabling custom mappings or removing the
+Anka and translation mappings stops this service.
 
 The initial mappings open **Paseo Live Voice** (`paseo://live-voice` in
 `sh.paseo.assembly`). They can be changed independently. **Use original Soundcore

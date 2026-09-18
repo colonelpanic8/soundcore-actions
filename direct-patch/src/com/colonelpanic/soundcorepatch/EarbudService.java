@@ -20,7 +20,9 @@ public final class EarbudService extends Service {
   static final int NOTIFICATION_ID = 0x534341;
 
   static boolean needed(Context context) {
-    return Rules.get(context, "activity", Rules.ANKA) != null
+    return (Rules.get(context, "activity", Rules.ANKA) != null
+            || Rules.get(context, "activity", Rules.REALTIME) != null
+            || Rules.get(context, "activity", Rules.FACE) != null)
         && (Build.VERSION.SDK_INT < 31
             || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 == PackageManager.PERMISSION_GRANTED);
@@ -62,7 +64,8 @@ public final class EarbudService extends Service {
         new Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle("Earbud actions ready")
-            .setContentText("Listening for Anka gestures. Tap to manage custom mappings.")
+            .setContentText(
+                "Listening for Anka and translation gestures. Tap to manage custom mappings.")
             .setContentIntent(settings)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

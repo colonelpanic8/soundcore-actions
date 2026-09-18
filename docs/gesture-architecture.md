@@ -30,9 +30,20 @@ The original design only substituted Android components after the vendor app
 decided to open a screen. As of 2026-09-08, `EarbudActions` also handles Liberty 5
 Pro Anka start callbacks directly and dispatches the existing mapping without a
 screen launch. The listener reattaches after the vendor clears its callbacks on
-reconnect. Translation mappings still use component substitution. Listener
-attachment has been verified in the vendor process; the physical gesture path
-still needs end-to-end verification.
+reconnect.
+
+As of 2026-09-18 the same direct dispatch covers the AI translation callback,
+because a physical gesture test showed component substitution alone is not enough.
+On a Liberty 5 Pro with the left long press assigned to AI translation:
+
+- The packet always reaches our listener:
+  `getAudioRecordCmdCallback(success=true, start=true, action=2)`.
+- With a Soundcore activity alive, the vendor then opened `RealtimeActivity`, and
+  component substitution ran the mapping.
+- With Soundcore backgrounded, the packet still arrived but the vendor opened no
+  screen, so nothing ran. This is the case direct dispatch now handles.
+- Assigning the same gesture to Anka produced no callback at all on that unit, so
+  the Anka gesture path remains unverified on real hardware.
 
 Android froze the main process during the background hardware check, preventing
 the listener from running. `EarbudService` now maintains a connected-device
@@ -84,11 +95,12 @@ with no activity, the listener list was empty. `AIPrivacyManager` owns
 privacy dialog that appears before `AIChatActivity`; it is the most likely
 bridge, but the hop from the callback to `startActivity` was not observed.
 
-Open question, only answerable with a physical gesture: whether a Liberty 5 Pro
-Anka gesture opens `AIChatActivity` at all while the Soundcore app has no
-activity alive. The dedicated wind command works from a broadcast because the
-SPP link stays up while the process lives, but that says nothing about the
-vendor's gesture handling.
+Answered for the translation gesture on 2026-09-18: with no activity alive the
+vendor opens no screen, even though the earbud packet still arrives. The same is
+assumed for Anka, but could not be observed because that gesture produced no
+callback on the test unit. The dedicated wind command works from a broadcast
+because the SPP link stays up while the process lives; the vendor's gesture
+handling is what needs an activity.
 
 ## Consequences for the design
 
@@ -102,16 +114,15 @@ vendor's gesture handling.
   to distinguish a first press from a second). Widening that requires either
   evidence of additional firmware events or firmware changes; neither has been
   tested.
-- **The earlier hook now implemented for Anka.** Registering our own
+- **The earlier hook is now implemented for both events.** Registering our own
   `Cmm2BtEventCallback` proxy on `Cmm2BtDeviceManager` (the same technique
-  `WindDevice` uses) should receive `getAIChatStartCmdCallback` and
-  `getAudioRecordCmdCallback` directly. Anka start events now dispatch the mapping;
-  translation events are logged without choosing between the translation modes.
-  This can distinguish a
-  physical gesture from manual navigation, avoid the vendor's AI consent
-  dialog, and not depend on which vendor listener happens to be registered.
-  None of that is proven: it requires the vendor process to be alive with the
-  SPP link connected, and no physical gesture has been observed through it.
+  `WindDevice` uses) receives `getAIChatStartCmdCallback` and
+  `getAudioRecordCmdCallback` directly. Both now dispatch the mapping. This
+  distinguishes a physical gesture from manual navigation, avoids the vendor's AI
+  consent dialog, and does not depend on which vendor listener happens to be
+  registered. It still requires the vendor process to be alive with the SPP link
+  connected, which the `EarbudService` foreground service maintains. Verified end
+  to end for the translation event; the Anka event remains unobserved on hardware.
 - **Labels are only labels.** Showing "Paseo Live Voice" in the picker changes
   nothing in the firmware; the earbuds still store the Anka code.
 
