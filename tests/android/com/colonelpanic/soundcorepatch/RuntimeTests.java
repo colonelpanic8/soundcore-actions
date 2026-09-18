@@ -633,9 +633,118 @@ public final class RuntimeTests extends Instrumentation {
     return null;
   }
 
+  @SuppressWarnings("deprecation")
+  private void testEarbudTranslationEvents() throws Exception {
+    Context context = getTargetContext();
+    Application app = (Application) context.getApplicationContext();
+    Rules.Action previousRealtime = Rules.stored(context, "activity", Rules.REALTIME);
+    Rules.Action previousFace = Rules.stored(context, "activity", Rules.FACE);
+    Rules.Action previousAnka = Rules.stored(context, "activity", Rules.ANKA);
+    String event = "com.colonelpanic.soundcoreactions.TRANSLATION_TEST";
+    java.util.concurrent.atomic.AtomicInteger deliveries =
+        new java.util.concurrent.atomic.AtomicInteger();
+    BroadcastReceiver receiver =
+        new BroadcastReceiver() {
+          @Override
+          public void onReceive(Context ignored, Intent intent) {
+            deliveries.incrementAndGet();
+          }
+        };
+    if (Build.VERSION.SDK_INT >= 33)
+      context.registerReceiver(receiver, new IntentFilter(event), Context.RECEIVER_NOT_EXPORTED);
+    else context.registerReceiver(receiver, new IntentFilter(event));
+    ClassLoader loader =
+        new ClassLoader(getClass().getClassLoader()) {
+          @Override
+          public Class<?> loadClass(String name) throws ClassNotFoundException {
+            if (name.equals("com.oceanwing.devicecmd.manager.cmmbt2.Cmm2BtDeviceManager"))
+              return Fixtures.EarbudManager.class;
+            if (name.equals("com.oceanwing.devicecmd.manager.BaseBtEventCallback"))
+              return Fixtures.BaseCallback.class;
+            if (name.equals("com.oceanwing.devicecmd.manager.cmmbt2.Cmm2BtEventCallback"))
+              return Fixtures.EarbudCallback.class;
+            return super.loadClass(name);
+          }
+        };
+    long[] now = {0};
+    EarbudActions[] listener = new EarbudActions[1];
+    Fixtures.EarbudManager manager = Fixtures.EarbudManager.y;
+    Rules.Action broadcast =
+        new Rules.Action(
+            "broadcast",
+            "Translation test",
+            context.getPackageName(),
+            "intent:#Intent;action=" + event + ";end");
+    try {
+      Rules.put(context, "activity", Rules.ANKA, null);
+      Rules.put(context, "activity", Rules.FACE, null);
+      Rules.put(context, "activity", Rules.REALTIME, broadcast);
+      main(
+          () ->
+              listener[0] =
+                  new EarbudActions(
+                      app, loader, new AnkaTrigger(() -> now[0]), new AnkaTrigger(() -> now[0])));
+      check(
+          await(() -> manager.listeners.size() == 1),
+          "Earbud listener attaches for translation events");
+      main(
+          () -> {
+            manager.emitTranslation(false, true, 2);
+            manager.emitTranslation(true, false, 2);
+          });
+      waitForIdleSync();
+      check(deliveries.get() == 0, "Failed and stop-recording translation events do not dispatch");
+      main(
+          () -> {
+            manager.emitTranslation(true, true, 2);
+            manager.emitTranslation(true, true, 2);
+          });
+      check(
+          await(() -> deliveries.get() == 1),
+          "Translation callback dispatches the real-time mapping exactly once");
+      Rules.put(context, "activity", Rules.REALTIME, null);
+      Rules.put(context, "activity", Rules.FACE, broadcast);
+      now[0] = 2000;
+      main(() -> manager.emitTranslation(true, true, 2));
+      check(await(() -> deliveries.get() == 2), "Face-to-face mapping runs when only it is mapped");
+      Rules.put(context, "activity", Rules.FACE, null);
+      now[0] = 4000;
+      main(() -> manager.emitTranslation(true, true, 2));
+      waitForIdleSync();
+      check(
+          deliveries.get() == 2,
+          "Removing translation mappings restores original gesture behavior");
+      Rules.put(context, "activity", Rules.ANKA, broadcast);
+      Rules.put(context, "activity", Rules.REALTIME, broadcast);
+      now[0] = 6000;
+      main(
+          () -> {
+            manager.emitTranslation(true, true, 2);
+            manager.emit(true, true);
+          });
+      check(
+          await(() -> deliveries.get() == 4),
+          "Anka and translation gestures are debounced independently");
+    } finally {
+      main(
+          () -> {
+            if (listener[0] != null) listener[0].close();
+          });
+      Rules.put(context, "activity", Rules.REALTIME, previousRealtime);
+      Rules.put(context, "activity", Rules.FACE, previousFace);
+      Rules.put(context, "activity", Rules.ANKA, previousAnka);
+      context.unregisterReceiver(receiver);
+    }
+    check(manager.listeners.isEmpty(), "Translation listener detaches cleanly");
+  }
+
   private void testEarbudService() throws Exception {
     Context context = getTargetContext();
     Rules.Action previous = Rules.stored(context, "activity", Rules.ANKA);
+    Rules.Action previousRealtime = Rules.stored(context, "activity", Rules.REALTIME);
+    Rules.Action previousFace = Rules.stored(context, "activity", Rules.FACE);
+    Rules.put(context, "activity", Rules.REALTIME, null);
+    Rules.put(context, "activity", Rules.FACE, null);
     if (Build.VERSION.SDK_INT >= 31)
       getUiAutomation()
           .grantRuntimePermission(
@@ -669,10 +778,22 @@ public final class RuntimeTests extends Instrumentation {
       Rules.put(context, "activity", Rules.ANKA, null);
       main(() -> EarbudService.update(context));
       check(await(() -> earbudService() == null), "Removing Anka stops the earbud service");
+      Rules.put(context, "activity", Rules.REALTIME, Rules.Action.paseo());
+      main(() -> EarbudService.update(context));
+      check(
+          await(() -> earbudService() != null && earbudService().foreground),
+          "A translation mapping alone keeps the earbud listener running");
+      Rules.put(context, "activity", Rules.REALTIME, null);
+      main(() -> EarbudService.update(context));
+      check(
+          await(() -> earbudService() == null),
+          "Removing the last earbud mapping stops the service");
     } finally {
       context.stopService(new Intent(context, EarbudService.class));
       main(screen::finish);
       Rules.put(context, "activity", Rules.ANKA, previous);
+      Rules.put(context, "activity", Rules.REALTIME, previousRealtime);
+      Rules.put(context, "activity", Rules.FACE, previousFace);
       Rules.setEnabled(context, true);
     }
   }
@@ -701,6 +822,7 @@ public final class RuntimeTests extends Instrumentation {
       testMappedLaunch();
       testAnkaDeduplication();
       testEarbudEvents();
+      testEarbudTranslationEvents();
       testEarbudService();
       Intent link = ActionRunner.intent(context, Rules.Action.paseo());
       check(Intent.ACTION_VIEW.equals(link.getAction()), "Link action");

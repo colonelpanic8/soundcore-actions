@@ -53,6 +53,11 @@ public final class Fixtures {
       for (BaseCallback callback : new ArrayList<>(listeners))
         ((EarbudCallback) callback).getAIChatStartCmdCallback(success, start);
     }
+
+    public void emitTranslation(boolean success, boolean start, int action) {
+      for (BaseCallback callback : new ArrayList<>(listeners))
+        ((EarbudCallback) callback).getAudioRecordCmdCallback(success, start, action);
+    }
   }
 
   public static final class Background extends Service {

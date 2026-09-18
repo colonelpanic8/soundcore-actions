@@ -164,11 +164,11 @@ public final class SettingsActivity extends Activity {
           showHome();
         });
     control.addView(enabled, new LinearLayout.LayoutParams(-1, -2));
-    if (Rules.get(this, "activity", Rules.ANKA) != null)
+    if (EarbudService.needed(this))
       text(
           control,
-          "Anka gestures use an ongoing Earbud actions notification to keep the listener running."
-              + " Disable custom mappings or remove Anka to stop it.",
+          "Anka and translation gestures use an ongoing Earbud actions notification to keep the"
+              + " listener running. Disable custom mappings or remove those mappings to stop it.",
           14,
           muted,
           false);
