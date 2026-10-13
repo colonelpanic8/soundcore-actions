@@ -59,6 +59,48 @@ public final class PatchResources {
       wind.getOrCreateAndroidAttribute("name", NAME)
           .setValueAsString(PREFIX + "WindToggleReceiver");
       wind.getOrCreateAndroidAttribute("exported", android.R.attr.exported).setValueAsBoolean(true);
+      ResXmlElement windActivity = app.newElement("activity");
+      windActivity
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString(PREFIX + "WindActivity");
+      windActivity
+          .getOrCreateAndroidAttribute("exported", android.R.attr.exported)
+          .setValueAsBoolean(true);
+      windActivity
+          .getOrCreateAndroidAttribute("taskAffinity", android.R.attr.taskAffinity)
+          .setValueAsString("");
+      windActivity
+          .getOrCreateAndroidAttribute("excludeFromRecents", android.R.attr.excludeFromRecents)
+          .setValueAsBoolean(true);
+      windActivity
+          .getOrCreateAndroidAttribute("noHistory", android.R.attr.noHistory)
+          .setValueAsBoolean(true);
+      ResXmlAttribute windTheme =
+          windActivity.getOrCreateAndroidAttribute("theme", android.R.attr.theme);
+      windTheme.setValueType(ValueType.REFERENCE);
+      windTheme.setData(android.R.style.Theme_NoDisplay);
+      ResXmlElement windFilter = windActivity.newElement("intent-filter");
+      windFilter
+          .newElement("action")
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("com.colonelpanic.soundcoreactions.SET_WIND_REDUCTION");
+      windFilter
+          .newElement("category")
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("android.intent.category.DEFAULT");
+      ResXmlElement eva = app.newElement("service");
+      eva.getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString(PREFIX + "EvaExtensionService");
+      eva.getOrCreateAndroidAttribute("exported", android.R.attr.exported).setValueAsBoolean(true);
+      eva.newElement("intent-filter")
+          .newElement("action")
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("com.colonelpanic.eva.action.EXTENSION");
+      ResXmlElement evaVersion = eva.newElement("meta-data");
+      evaVersion
+          .getOrCreateAndroidAttribute("name", NAME)
+          .setValueAsString("com.colonelpanic.eva.extension.version");
+      evaVersion.getOrCreateAndroidAttribute("value", android.R.attr.value).setValueAsDecimal(1);
       ResXmlElement listener = app.newElement("service");
       listener.getOrCreateAndroidAttribute("name", NAME).setValueAsString(PREFIX + "EarbudService");
       listener

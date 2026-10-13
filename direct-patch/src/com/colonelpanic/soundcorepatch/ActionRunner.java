@@ -46,7 +46,7 @@ final class ActionRunner {
 
   static void run(Context context, Rules.Action action) {
     if ("wind".equals(action.type)) {
-      WindToggleReceiver.run(context, (success, message) -> {});
+      WindToggleReceiver.run(context, outcome -> {});
       return;
     }
     try {

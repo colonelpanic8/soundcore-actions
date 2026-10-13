@@ -126,7 +126,22 @@ def main():
     if classes.exists():
         shutil.rmtree(classes)
     classes.mkdir()
-    sources = sorted((root / "direct-patch/src").rglob("*.java"))
+    generated = out / "aidl"
+    if generated.exists():
+        shutil.rmtree(generated)
+    aidl = root / "direct-patch/aidl"
+    run(
+        tools / "aidl",
+        "--lang=java",
+        "-I",
+        aidl,
+        "-o",
+        generated,
+        *sorted(aidl.rglob("*.aidl")),
+    )
+    sources = sorted((root / "direct-patch/src").rglob("*.java")) + sorted(
+        generated.rglob("*.java")
+    )
     run(
         jdk / "bin/javac",
         "--release",

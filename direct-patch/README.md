@@ -134,17 +134,44 @@ hashes, and device verification of the component factory and native libraries.
 
 ## Built-in wind reduction
 
-`WindToggle` performs read → invert → write → acknowledgement → readback, with
-an eight-second timeout in `WindToggleReceiver`. Acknowledgement alone is not
-success. `WindDevice` adapts the pinned upstream runtime through reflection:
+`WindToggle` performs read → choose target → write → acknowledgement → readback.
+The target is the inverted setting for a toggle, or a fixed on/off, which skips
+the write when the earbuds already match; a read stops after the first state.
+`WindToggleReceiver` bounds each command (eight seconds by default, the remaining
+EVA deadline otherwise) and, after a cold start, retries reaching Soundcore's
+device manager within that budget. Acknowledgement alone is not success. Outcomes
+distinguish nothing sent, a confirmed change, a definite rejection or mismatch,
+and an unconfirmed write. `WindDevice` adapts the pinned upstream runtime through reflection:
 `Cmm2BtDeviceManager.D5(11, enabled)` is the dedicated switch command; `r()`
 requests fresh device information. The adapter accepts only the verified D1203
 product and checks the active device address before each request. Callback work
 is posted to the main queue so listener removal cannot mutate the vendor's
 listener list during dispatch. Multiple simultaneous toggles are rejected.
 
-The explicit receiver provides a background entry point. Activity mappings use
+The explicit receiver provides a background entry point. It accepts an optional
+`state` string extra: `on`, `off`, or `toggle` (the default). `WindActivity`
+accepts the same extra for activity-only callers; it uses `Theme.NoDisplay`, an
+empty task affinity, and no history, starts the command, and finishes at once. Activity mappings use
 a no-display trampoline for this action. Android runtime tests cover both toggle
 directions, readback confirmation, failed reads/writes/acknowledgements, timeout,
 and listener cleanup. Hardware verification on Liberty 5 Pro also confirmed the
 broadcast can toggle the setting while Android remains in Dozing state.
+
+## EVA extension
+
+`EvaExtensionService` implements EVA's installed-app AIDL protocol v1 (see EVA's
+`docs/extension-protocol.md`). The two AIDL files in `aidl/` are verbatim copies of
+EVA's ABI; the build generates their Java stubs with build-tools `aidl` and
+compiles them into `classes2.dex`. The manifest patch adds the exported service
+with the `com.colonelpanic.eva.action.EXTENSION` filter and integer version
+metadata. It runs in Soundcore's main process, which owns the earbud connection.
+
+The service trusts a caller only when every package on its UID is release EVA
+(`com.colonelpanic.eva`, pinned to EVA's release certificate) or, for builds not
+signed with the Soundcore Actions release key, `com.colonelpanic.eva.debug`
+sharing this build's signer. `EvaWind` describes `wind_reduction_status` (read)
+and `set_wind_reduction` (write, `state` of `on`, `off`, or `toggle`), validates
+the descriptor revision, arguments, and deadline, and maps wind outcomes to EVA
+statuses. Writes are journaled by caller UID and invocation ID in no-backup
+storage before the earbuds are contacted, so a replayed ID returns the recorded
+reply and an interrupted one reports unknown instead of toggling again.

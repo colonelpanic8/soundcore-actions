@@ -1,6 +1,7 @@
-Make AI translation gestures work while Soundcore is in the background.
+Control wind reduction from EVA.
 
-- Dispatch the Liberty 5 Pro AI translation callback directly from the Bluetooth listener, the way Anka callbacks already were. A physical gesture test showed the earbud packet always arrives, but with no Soundcore activity alive the vendor opens no screen, so component substitution alone never ran the mapping.
-- Run the **Real-time translation** mapping for that packet, falling back to **Face-to-face translation** when only that one is mapped, because the packet does not name a screen.
-- Keep the ongoing **Earbud actions** notification alive for translation mappings too, not only for Anka.
-- Debounce Anka and translation gestures independently so a gesture and the vendor screen it opens still run the mapping once.
+- Soundcore Actions is now an EVA extension. EVA discovers it automatically and can check wind reduction or turn it on, off, or toggle it on Liberty 5 Pro without opening Soundcore.
+- EVA reports what the earbuds confirmed. When nothing could be sent, the earbuds rejected the change, or a change went unconfirmed, it says which, and a repeated request is never applied twice.
+- A new invisible wind reduction activity (`SET_WIND_REDUCTION` with a `state` extra) serves apps that can only launch activities, including EVA's catalog Soundcore package.
+- The wind reduction broadcast accepts an optional `state` extra (`on`, `off`, or `toggle`) for automation apps.
+- A wind command started right after Soundcore launches waits briefly for the earbud connection instead of failing at once.
