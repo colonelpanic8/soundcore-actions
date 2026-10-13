@@ -78,20 +78,38 @@ reduction now** on the mappings page. This currently supports Liberty 5 Pro
 current setting, toggles it, and confirms the result before reporting on or off.
 The command runs in the background without opening Soundcore's controls.
 
+### From EVA
+
+Soundcore Actions is also an [EVA](https://github.com/colonelpanic8/eva)
+extension. EVA discovers it and offers **Check wind reduction** and **Set wind
+reduction** (on, off, or toggle), so you can say "turn on wind reduction". EVA
+versions that pin this app's release signer enable it automatically; otherwise
+turn it on under EVA's Extensions. EVA reports the setting the earbuds confirmed. Only the released EVA
+app may call these actions. If Soundcore is not running or the earbuds are not
+connected in it, EVA says so and nothing changes; open Soundcore once and try
+again.
+
 An automation app can also send an explicit broadcast:
 
 ```text
 Action: com.colonelpanic.soundcoreactions.TOGGLE_WIND_REDUCTION
 Package: com.oceanwing.soundcore
 Receiver: com.colonelpanic.soundcorepatch.WindToggleReceiver
+Extra (optional): state = on | off | toggle
 ```
+
+Apps that can only launch activities can start the invisible
+`com.colonelpanic.soundcorepatch.WindActivity` with action
+`com.colonelpanic.soundcoreactions.SET_WIND_REDUCTION` and the same `state` extra.
+EVA's catalog [Soundcore package](https://github.com/colonelpanic8/eva-extensions/blob/main/packages/soundcore.json)
+uses it as a fallback when this app's own EVA extension is unavailable.
 
 A physical gesture still needs an existing earbud event, such as Anka or
 translation, assigned in Soundcore. Repurposing that event supplies the trigger;
 the wind command itself does not require opening or replacing a Soundcore screen.
 The explicit broadcast and the test button work independently of mappings.
 Other local apps can invoke this exported receiver; it accepts only the fixed
-wind-toggle action and does not accept arbitrary commands or device addresses.
+wind reduction action and does not accept arbitrary commands or device addresses.
 
 ## Spoken messages
 

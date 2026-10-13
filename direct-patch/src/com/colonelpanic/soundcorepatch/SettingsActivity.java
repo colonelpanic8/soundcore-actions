@@ -213,10 +213,7 @@ public final class SettingsActivity extends Activity {
       button(mapping, "Edit mapping", () -> edit(kind, name));
     }
     button(page, "+ Add a mapping", this::chooseTriggerSource);
-    button(
-        page,
-        "Toggle wind reduction now",
-        () -> WindToggleReceiver.run(this, (success, message) -> {}));
+    button(page, "Toggle wind reduction now", () -> WindToggleReceiver.run(this, outcome -> {}));
     button(page, "Recent events", () -> chooseTrigger("recent"));
     button(
         page,

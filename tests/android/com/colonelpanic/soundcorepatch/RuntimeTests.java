@@ -29,6 +29,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public final class RuntimeTests extends Instrumentation {
   private int checks;
@@ -58,43 +60,69 @@ public final class RuntimeTests extends Instrumentation {
     }
   }
 
+  private static WindToggle.Outcome[] windRun(
+      FakeWind device, WindToggle.Mode mode, WindToggle[] toggle) {
+    WindToggle.Outcome[] outcome = new WindToggle.Outcome[1];
+    toggle[0] =
+        new WindToggle(
+            device,
+            mode,
+            result -> {
+              if (outcome[0] != null) throw new AssertionError("Wind finished twice");
+              outcome[0] = result;
+            });
+    toggle[0].start();
+    return outcome;
+  }
+
   private void testWind() {
     for (boolean initial : new boolean[] {false, true}) {
       FakeWind device = new FakeWind();
-      int[] results = {0};
-      WindToggle toggle =
-          new WindToggle(
-              device,
-              (success, message) -> {
-                check(success, "Wind confirmed");
-                results[0]++;
-              });
-      toggle.start();
+      WindToggle[] toggle = new WindToggle[1];
+      WindToggle.Outcome[] outcome = windRun(device, WindToggle.Mode.TOGGLE, toggle);
       check(device.reads == 1 && device.writes == 0, "Read before write");
       device.listener.state(true, initial);
       check(device.writes == 1 && device.written != initial, "Toggle fresh state");
       device.listener.state(true, initial);
       check(device.writes == 1, "Ignore unrelated reads while awaiting acknowledgement");
       device.listener.acknowledged(true);
-      check(device.reads == 2 && results[0] == 0, "Acknowledgement requires readback");
+      check(device.reads == 2 && outcome[0] == null, "Acknowledgement requires readback");
       device.listener.state(true, !initial);
-      toggle.timeout();
+      toggle[0].timeout();
       device.listener.acknowledged(true);
-      check(results[0] == 1 && device.closes == 1, "Complete and clean up exactly once");
+      check(
+          outcome[0].success() && outcome[0].enabled == !initial && device.closes == 1,
+          "Complete and clean up exactly once");
     }
-    for (int failure = 0; failure < 5; failure++) {
+    for (boolean on : new boolean[] {false, true}) {
       FakeWind device = new FakeWind();
-      int[] results = {0};
-      WindToggle toggle =
-          new WindToggle(
-              device,
-              (success, message) -> {
-                check(!success, "Failure cannot report success");
-                results[0]++;
-              });
-      toggle.start();
+      WindToggle.Mode mode = on ? WindToggle.Mode.ON : WindToggle.Mode.OFF;
+      WindToggle.Outcome[] outcome = windRun(device, mode, new WindToggle[1]);
+      device.listener.state(true, on);
+      check(
+          outcome[0].success() && outcome[0].enabled == on && device.writes == 0,
+          "Explicit state already set needs no write");
+      device = new FakeWind();
+      outcome = windRun(device, mode, new WindToggle[1]);
+      device.listener.state(true, !on);
+      check(device.writes == 1 && device.written == on, "Explicit state writes its target");
+      device.listener.acknowledged(true);
+      device.listener.state(true, on);
+      check(outcome[0].success() && outcome[0].enabled == on, "Explicit state confirmed");
+    }
+    FakeWind reader = new FakeWind();
+    WindToggle.Outcome[] read = windRun(reader, WindToggle.Mode.READ, new WindToggle[1]);
+    reader.listener.state(true, true);
+    check(
+        read[0].success() && read[0].enabled && reader.writes == 0 && reader.closes == 1,
+        "Read reports the setting without writing");
+    String[] expected = {"not_sent", "not_sent", "uncertain", "failed", "failed", "uncertain"};
+    for (int failure = 0; failure < expected.length; failure++) {
+      FakeWind device = new FakeWind();
+      WindToggle[] toggle = new WindToggle[1];
+      WindToggle.Outcome[] outcome = windRun(device, WindToggle.Mode.TOGGLE, toggle);
       if (failure == 0) device.listener.state(false, false);
-      else if (failure == 1) toggle.timeout();
+      else if (failure == 1) toggle[0].timeout();
       else {
         device.failWrite = failure == 2;
         device.listener.state(true, false);
@@ -103,10 +131,138 @@ public final class RuntimeTests extends Instrumentation {
           device.listener.acknowledged(true);
           device.listener.state(true, false);
         }
+        if (failure == 5) toggle[0].timeout();
       }
-      check(results[0] == 1 && device.closes == 1, "Failure cleans up listener");
+      check(
+          outcome[0] != null && expected[failure].equals(outcome[0].state),
+          "Wind failure " + failure + " reports " + expected[failure]);
+      check(device.closes == 1, "Failure cleans up listener");
       if (failure < 2) check(device.writes == 0, "No write without fresh state");
     }
+  }
+
+  private static final class MemoryJournal implements EvaWind.Journal {
+    final Map<String, JSONObject> entries = new HashMap<>();
+
+    public JSONObject begin(String key, String request) {
+      if (entries.containsKey(key)) return entries.get(key);
+      try {
+        entries.put(key, new JSONObject().put("request", request));
+      } catch (JSONException error) {
+        throw new AssertionError(error);
+      }
+      return null;
+    }
+
+    public void finish(String key, String envelope) {
+      try {
+        entries.get(key).put("envelope", envelope);
+      } catch (JSONException error) {
+        throw new AssertionError(error);
+      }
+    }
+  }
+
+  private void testEvaWind() throws JSONException {
+    JSONObject descriptor = new JSONObject(EvaWind.describe()).getJSONObject("descriptor");
+    check(
+        EvaWind.REVISION.equals(descriptor.getString("descriptorRevision"))
+            && descriptor.getJSONArray("capabilities").length() == 2,
+        "EVA descriptor lists both wind actions");
+    MemoryJournal journal = new MemoryJournal();
+    WindToggle.Mode[] ran = new WindToggle.Mode[1];
+    WindToggle.Outcome[] next = {new WindToggle.Outcome("completed", true, "Wind reduction on")};
+    int[] runs = {0};
+    EvaWind wind =
+        new EvaWind(
+            (mode, budget, result) -> {
+              runs[0]++;
+              ran[0] = mode;
+              result.finish(next[0]);
+            },
+            journal,
+            () -> 0);
+    long deadline = 15000;
+    JSONObject reply =
+        new JSONObject(
+            wind.execute(
+                1, "eva-a", EvaWind.REVISION, EvaWind.SET, "{\"state\":\"on\"}", deadline));
+    JSONObject receipt = reply.getJSONObject("structuredContent");
+    check(
+        "completed".equals(reply.getString("status"))
+            && ran[0] == WindToggle.Mode.ON
+            && "eva-a".equals(receipt.getString("invocationId"))
+            && "completed".equals(receipt.getString("state"))
+            && receipt.getBoolean("enabled"),
+        "EVA turns wind reduction on with a receipt");
+    String replay =
+        wind.execute(1, "eva-a", EvaWind.REVISION, EvaWind.SET, "{\"state\":\"on\"}", deadline);
+    check(runs[0] == 1 && replay.equals(reply.toString()), "Replayed invocation is not rerun");
+    reply =
+        new JSONObject(
+            wind.execute(
+                1, "eva-a", EvaWind.REVISION, EvaWind.SET, "{\"state\":\"off\"}", deadline));
+    check(
+        runs[0] == 1
+            && "request_id_conflict"
+                .equals(reply.getJSONObject("structuredContent").getString("state")),
+        "Reused invocation ID with another request is refused");
+    journal.begin("1:eva-b", WindToggle.Mode.TOGGLE.name());
+    reply =
+        new JSONObject(
+            wind.execute(
+                1, "eva-b", EvaWind.REVISION, EvaWind.SET, "{\"state\":\"toggle\"}", deadline));
+    check(
+        runs[0] == 1 && "unknown".equals(reply.getString("status")),
+        "Interrupted invocation reports unknown without rerunning");
+    String[][] refusals = {
+      {"stale", EvaWind.SET, "{\"state\":\"on\"}", "stale_descriptor"},
+      {EvaWind.REVISION, EvaWind.SET, "{\"state\":\"maybe\"}", "invalid_arguments"},
+      {EvaWind.REVISION, EvaWind.SET, "{}", "invalid_arguments"},
+      {EvaWind.REVISION, EvaWind.STATUS, "{\"state\":\"on\"}", "invalid_arguments"},
+      {EvaWind.REVISION, "other", "{}", "invalid_arguments"},
+    };
+    for (String[] refusal : refusals) {
+      reply =
+          new JSONObject(wind.execute(1, "eva-r", refusal[0], refusal[1], refusal[2], deadline));
+      check(
+          "not_executed".equals(reply.getString("status"))
+              && refusal[3].equals(reply.getString("reasonCode")),
+          "EVA request refused with " + refusal[3]);
+    }
+    reply =
+        new JSONObject(
+            wind.execute(1, "eva-c", EvaWind.REVISION, EvaWind.SET, "{\"state\":\"on\"}", 2000));
+    check(
+        "deadline_exceeded".equals(reply.getString("reasonCode")), "Too little time left refuses");
+    check(runs[0] == 1, "Refusals never reach the earbuds");
+    String[][] mapped = {
+      {"uncertain", "unknown", "uncertain"},
+      {"busy", "not_executed", "rejected"},
+      {"needs_configuration", "not_executed", "needs_configuration"},
+      {"failed", "failed", "failed"},
+      {"not_sent", "not_executed", "not_sent"},
+    };
+    for (int i = 0; i < mapped.length; i++) {
+      next[0] = new WindToggle.Outcome(mapped[i][0], null, "message");
+      reply =
+          new JSONObject(
+              wind.execute(
+                  1, "eva-m" + i, EvaWind.REVISION, EvaWind.SET, "{\"state\":\"on\"}", deadline));
+      check(
+          mapped[i][1].equals(reply.getString("status"))
+              && mapped[i][2].equals(reply.getJSONObject("structuredContent").getString("state")),
+          "Wind " + mapped[i][0] + " maps to " + mapped[i][1]);
+    }
+    next[0] = new WindToggle.Outcome("completed", false, "Wind reduction off");
+    reply =
+        new JSONObject(wind.execute(1, "eva-s", EvaWind.REVISION, EvaWind.STATUS, "{}", deadline));
+    check(
+        "completed".equals(reply.getString("status"))
+            && ran[0] == WindToggle.Mode.READ
+            && !reply.getJSONObject("structuredContent").getBoolean("enabled")
+            && !journal.entries.containsKey("1:eva-s"),
+        "Status read reports the setting without journaling");
   }
 
   private void testSpokenMessages() {
@@ -814,6 +970,7 @@ public final class RuntimeTests extends Instrumentation {
     int code = Activity.RESULT_CANCELED;
     try {
       testWind();
+      testEvaWind();
       testSpokenMessages();
       testLabels();
       Rules.setEnabled(context, true);
